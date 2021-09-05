@@ -13,6 +13,8 @@ A `final` value on the other hand cannot be assigned a new value after it has re
 With the following Dart code:
 
 ```dart
+import 'dart:io' show exit;
+
 const value1 = 0xDEADBEEF;
 const value2 = 0xFEEDFEED;
 
@@ -87,4 +89,43 @@ is the following, identical to the previous print statement where a `const` was 
 000000000005fb06         mov        eax, 0xfeedfeed
 000000000005fb0b         push       rax
 000000000005fb0c         call       Precompiled____print_813                    ; Precompiled____print_813
+```
+
+so I won't explain this more since we've already seen the previous explanation!
+
+then comes the plus operator:
+
+```dart
+print(value1 + value2);
+```
+
+which gets compiled into the following assembly code:
+
+```asm
+000000000005fb12         movabs     rax, 0x1dd9bbddc
+000000000005fb1c         push       rax
+000000000005fb1d         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb22         pop        rcx
+```
+
+the compiler simply added `0xdeadbeef` and `0xfeedfeed` and the result was `0x1dd9bbddc` which then is moved to the 64 bit `rax` register using `movabs` which I just learned is a GAS specific `mov` instruction so opcode-wise is the same as `mov`.
+
+the take-away from this was the simplicity of the code and how compile-time constants get added at compile-time as well, so there is no `add` instruction to add the two values since a constant `mov` is faster in most modern cpus compared with an `add` instruction even if the two operands of the `add` are cpu registers!
+
+## How about the `final` code?
+
+So let's just make one small adjustment and turn `value2` into a `final` variable instead of a `const`:
+
+```dart
+import 'dart:io' show exit;
+
+const value1 = 0xDEADBEEF;
+final value2 = 0xFEEDFEED;
+
+void main(List<String> args) {
+  print(value1);
+  print(value2);
+  print(value1 + value2);
+  exit(0);
+}
 ```
