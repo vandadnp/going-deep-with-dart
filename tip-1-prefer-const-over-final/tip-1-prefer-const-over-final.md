@@ -2,6 +2,13 @@
 
 Let's discuss the optimizations that the Dart compiler applies to using constants over finals.
 
+- [Prefer `const` over `final`](#prefer-const-over-final)
+  - [What's the difference between `const` and `final`?](#whats-the-difference-between-const-and-final)
+  - [Diving into `const`](#diving-into-const)
+  - [How about the `final` code?](#how-about-the-final-code)
+  - [Conclusion](#conclusion)
+  - [References](#references)
+
 ## What's the difference between `const` and `final`?
 
 A `const` in Dart is a compile-time constant, meaning that all values that comprise the final value should be constants. For instance, the value `123` is a constant, but the value `123` read from the console into a variable of type `int` is **not** a constant since it's value is **not** known at compile-time.
