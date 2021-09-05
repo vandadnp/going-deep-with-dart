@@ -74,3 +74,17 @@ was then compiled into these x86_64 instructions:
 ```
 
 first the compiler is moving the value of `0xdeadbeef` into the 64 bit `eax` register (this fills the upper-bits all with zero while the lower-bits get set to the aforementioned value) and then pushes that value into the stack. The call then happens to the `Precompiled____print_813` function where the function will set up its own stack and then pop the value of `eax` from the stack to use for printing so we won't jump into those details. I'm not sure about the `pop ecx` bit of the code but usually that means the result of the print statement is placed into the stack after it's done and is being retrieved by the `pop` instruction into the `ecx` register, it being 32 bits, instead of 64 otherwise it would be `pop rcx`!
+
+The assembly code for this:
+
+```dart
+print(value2);
+```
+
+is the following, identical to the previous print statement where a `const` was involved:
+
+```asm
+000000000005fb06         mov        eax, 0xfeedfeed
+000000000005fb0b         push       rax
+000000000005fb0c         call       Precompiled____print_813                    ; Precompiled____print_813
+```
