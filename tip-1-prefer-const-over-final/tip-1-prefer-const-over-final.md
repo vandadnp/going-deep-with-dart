@@ -70,4 +70,5 @@ was then compiled into these x86_64 instructions:
 ```asm
 000000000005fafa         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1558+79
 000000000005faff         push       rax
+000000000005fb00         call       Precompiled____print_813                    ; Precompiled____print_813
 ```
