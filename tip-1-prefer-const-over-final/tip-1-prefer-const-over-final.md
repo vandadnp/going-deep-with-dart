@@ -59,3 +59,15 @@ this code compiles to the following x86_64 AOT:
 
 I won't focus on the `cmp` and the `jbe` parts where that's the compiler setting up the stack for the *main* function. We are interested in `loc_5fafa` in this case which is the body of our main function.
 
+the following Dart code:
+
+```dart
+print(value1);
+```
+
+was then compiled into these x86_64 instructions:
+
+```asm
+000000000005fafa         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1558+79
+000000000005faff         push       rax
+```
