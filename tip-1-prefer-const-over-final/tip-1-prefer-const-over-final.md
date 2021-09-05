@@ -1,4 +1,4 @@
-# Prfer `const` over `final`
+# Prefer `const` over `final`
 
 Let's discuss the optimizations that the Dart compiler applies to using constants over finals.
 
