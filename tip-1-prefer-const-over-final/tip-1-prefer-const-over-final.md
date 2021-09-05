@@ -26,7 +26,7 @@ void main(List<String> args) {
 
 this code compiles to the following x86_64 AOT:
 
-```
+```asm
         ; ================ B E G I N N I N G   O F   P R O C E D U R E ================
 
         ; Variables:
