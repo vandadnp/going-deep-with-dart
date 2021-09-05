@@ -219,3 +219,50 @@ well, that's where things go south! even though the value of `value2` is a final
 000000000005fb2a         call       Precompiled____print_813                    ; Precompiled____print_813
 000000000005fb2f         pop        rcx
 ```
+
+the first two `mov` instructions are *most defintely* setting up the pointer to the `value2` pointer, I could be wrong about this, but I am assuming this since I don't know any better! If you know please let me know. then we have a `jae` which is pretty much the same as `jnc` which tests the Carry Flag (CF) in EFLAGS (refer to Intel's instructions for this!) since line before that is `sar` that stands for shift-arithmetic-right and the `jae` jumps to the print statement if the carry flag is 0. It's possible all of this is done to ensure `value2` is copied over to the stack before it is handed over to the `loc_5fb29` sub-procedure but I could be completely wrong about this. one thing that is clear though is that the code is definitely using `value2` as a constant, although it is not re-written at all!
+
+the part that annoys me the most is the compiled code for this Dart code:
+
+```dart
+print(value1 + value2);
+```
+
+it translates to this code:
+
+```asm
+000000000005fb30         mov        rax, qword [r14+0x88]
+000000000005fb37         mov        rax, qword [rax+0x900]
+000000000005fb3e         cmp        rax, qword [r14+0xc8]
+000000000005fb45         je         loc_5fb82
+
+000000000005fb4b         sar        rax, 0x1
+000000000005fb4e         jae        loc_5fb58
+
+000000000005fb50         mov        rax, qword [0x8+rax*2]
+
+                     loc_5fb58:
+000000000005fb58         mov        r11d, 0xdeadbeef                            ; CODE XREF=Precompiled____main_1559+90
+000000000005fb5e         add        rax, r11
+000000000005fb61         push       rax
+000000000005fb62         call       Precompiled____print_813                    ; Precompiled____print_813
+```
+
+you can see the same two `mov` instructions happening here again, and you can pretty much see Dart is repeating itself, and not keeping the value of `value2` in a register, since as I said before, Dart doesn't know better. It just knows that `int` is a class and between the previous `print()` function and now it's internals may have changed, so it has to redo the whole thing again, and bring `value2` into context!
+
+this is really expensive if you have massive number of these hidden `final` values that could essentially be `const` but they just are not for some reason (most probably human error).
+
+the part with the `value1` in this addition is the most straightforward as you can see
+
+```asm
+000000000005fb58         mov        r11d, 0xdeadbeef                            ; CODE XREF=Precompiled____main_1559+90
+```
+
+## Conclusion
+
+Try to keep your constants as constants, and don't make the mistake of defining them as `final` values just because it's your team's convention or a similar reason. The Dart compiler treats your `final` values as potentially mutable class instances, which they are! So use `const` where you can and only use `final` if you cannot use `const`.
+
+## References
+
+* Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture
+* Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z
