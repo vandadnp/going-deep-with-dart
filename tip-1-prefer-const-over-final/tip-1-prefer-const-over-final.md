@@ -7,6 +7,7 @@ Let's discuss the optimizations that the Dart compiler applies to using constant
   - [Diving into `const`](#diving-into-const)
   - [How about the `final` code?](#how-about-the-final-code)
   - [Conclusion](#conclusion)
+  - [Support My Work](#support-my-work)
   - [References](#references)
 
 ## What's the difference between `const` and `final`?
@@ -268,6 +269,10 @@ the part with the `value1` in this addition is the most straightforward as you c
 ## Conclusion
 
 Try to keep your constants as constants, and don't make the mistake of defining them as `final` values just because it's your team's convention or a similar reason. The Dart compiler treats your `final` values as potentially mutable class instances, which they are! So use `const` where you can and only use `final` if you cannot use `const`.
+
+## Support My Work
+
+If you like what I do, please consider supporting me: https://www.buymeacoffee.com/vandad
 
 ## References
 
