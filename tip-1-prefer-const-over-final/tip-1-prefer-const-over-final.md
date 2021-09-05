@@ -197,3 +197,25 @@ the code for printing `value1` is the exact same as it was before, since it stil
 000000000005fb08         call       Precompiled____print_813                    ; Precompiled____print_813
 000000000005fb0d         pop        rcx
 ```
+
+how about the compiled code for this though?
+
+```dart
+print(value2);
+```
+
+well, that's where things go south! even though the value of `value2` is a final value and won't be re-assigned to, but Dart doesn't know that! everything in Dart is a class and so Dart treats them as so. In this case, what we are telling Dart is that we have an instance of the `int` class inside a `final` variable, whose value cannot be overwritten, but the `int` instance internally can change, so Dart has to accommodate this into its calculations, hence the code becomes much longer:
+
+```asm
+000000000005fb0e         mov        rax, qword [r14+0x88]
+000000000005fb15         mov        rax, qword [rax+0x900]
+000000000005fb1c         sar        rax, 0x1
+000000000005fb1f         jae        loc_5fb29
+
+000000000005fb21         mov        rax, qword [0x8+rax*2]
+
+                     loc_5fb29:
+000000000005fb29         push       rax                                         ; CODE XREF=Precompiled____main_1559+43
+000000000005fb2a         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb2f         pop        rcx
+```
