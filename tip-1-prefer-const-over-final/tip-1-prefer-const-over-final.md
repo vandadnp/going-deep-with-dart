@@ -129,3 +129,71 @@ void main(List<String> args) {
   exit(0);
 }
 ```
+
+the compiled code for this is almost painfully longer and more complicated. let's have a look:
+
+```asm
+000000000005faf4         push       rbp                                         ; CODE XREF=Precompiled____main_main_1560+17
+000000000005faf5         mov        rbp, rsp
+000000000005faf8         cmp        rsp, qword [r14+0x40]
+000000000005fafc         jbe        loc_5fb79
+
+                     loc_5fb02:
+000000000005fb02         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1559+140
+000000000005fb07         push       rax
+000000000005fb08         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb0d         pop        rcx
+000000000005fb0e         mov        rax, qword [r14+0x88]
+000000000005fb15         mov        rax, qword [rax+0x900]
+000000000005fb1c         sar        rax, 0x1
+000000000005fb1f         jae        loc_5fb29
+
+000000000005fb21         mov        rax, qword [0x8+rax*2]
+
+                     loc_5fb29:
+000000000005fb29         push       rax                                         ; CODE XREF=Precompiled____main_1559+43
+000000000005fb2a         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb2f         pop        rcx
+000000000005fb30         mov        rax, qword [r14+0x88]
+000000000005fb37         mov        rax, qword [rax+0x900]
+000000000005fb3e         cmp        rax, qword [r14+0xc8]
+000000000005fb45         je         loc_5fb82
+
+000000000005fb4b         sar        rax, 0x1
+000000000005fb4e         jae        loc_5fb58
+
+000000000005fb50         mov        rax, qword [0x8+rax*2]
+
+                     loc_5fb58:
+000000000005fb58         mov        r11d, 0xdeadbeef                            ; CODE XREF=Precompiled____main_1559+90
+000000000005fb5e         add        rax, r11
+000000000005fb61         push       rax
+000000000005fb62         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb67         pop        rcx
+000000000005fb68         call       Precompiled____exit_1070                    ; Precompiled____exit_1070
+000000000005fb6d         mov        rax, qword [r14+0xc8]
+000000000005fb74         mov        rsp, rbp
+000000000005fb77         pop        rbp
+000000000005fb78         ret
+                        ; endp
+
+                     loc_5fb79:
+000000000005fb79         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1559+8
+000000000005fb80         jmp        loc_5fb02
+
+                     loc_5fb82:
+000000000005fb82         call       Precompiled_Stub__iso_stub_NullErrorSharedWithoutFPURegsStub ; Precompiled_Stub__iso_stub_NullErrorSharedWithoutFPURegsStub, CODE XREF=Precompiled____main_1559+81
+000000000005fb87         int3
+                        ; endp
+```
+
+jesus christ! that was a lot of code. I'm not going to go through it all since we've covered some of the basics and I try not to explain what all the instructios do since Intel has documented that already!
+
+the code for printing `value1` is the exact same as it was before, since it still is a `const`:
+
+```asm
+000000000005fb02         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1559+140
+000000000005fb07         push       rax
+000000000005fb08         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb0d         pop        rcx
+```
