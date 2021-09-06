@@ -195,7 +195,7 @@ the compiled code for this is almost painfully longer and more complicated. let'
                         ; endp
 ```
 
-jesus christ! that was a lot of code. I'm not going to go through it all since we've covered some of the basics and I try not to explain what all the instructios do since Intel has documented that already!
+jesus christ! that was a lot of code. I'm not going to go through it all since we've covered some of the basics and I try not to explain what all the instructions do since Intel has documented that already!
 
 the code for printing `value1` is the exact same as it was before, since it still is a `const`:
 
