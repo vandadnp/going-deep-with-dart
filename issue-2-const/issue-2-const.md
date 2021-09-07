@@ -2,6 +2,16 @@
 
 Let's go deep with `const` in Dart and see how it works under the hood.
 
+- [`const` in Dart](#const-in-dart)
+  - [What is `const`?](#what-is-const)
+  - [`const int`](#const-int)
+- [`const double`](#const-double)
+  - [`const String`](#const-string)
+  - [Curious case of mixing `const int` and `const double`](#curious-case-of-mixing-const-int-and-const-double)
+  - [`const` custom classes](#const-custom-classes)
+  - [Conclusion](#conclusion)
+  - [References](#references)
+
 ## What is `const`?
 
 `const` denotes a variable whose value is known at compile-time. The value of the variable cannot be overwritten during runtime and nor can the value change internally.
@@ -504,3 +514,8 @@ the `const` syntax in Dart is, like other languages, a hint to the compiler to m
 - constant `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
 - constant custom class instances, if just placeholders for data, and depending on what you are doing with those instances, could simply be calculated at compile-time and placed inside CPU registers to be used.
 - constant custom class instances, if more complicated and doing calculations such as string concatenation, and depending on what you do with those instances, may need to be allocated at run-time into their instances, resolved to proper pointers in the heap, and then passed around to different functions to be processed.
+
+## References
+
+- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture
+- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z
