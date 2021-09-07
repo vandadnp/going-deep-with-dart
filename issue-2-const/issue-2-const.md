@@ -116,3 +116,8 @@ this code is very different from the `const int` variant, since you see nowhere 
 the first part of the code before the linebreak is the setting up of the local stack so I won't talk about that. the interesting part is the `loc_37466` label where the first instruction is the `mov` instruction. This is _most definitely_ moving the pointer to the `doubleConst` constat into the `r11` 64-bit register. I could be wrong about this but I think that's it. So Dart is not hardcoding the `1.2` value as a 64-bit floating point into a register, instead, it's loading it from an effective address into the `r11` register. I _think_ this _could_ be less efficient than putting the constant value of the `double` right into the stack but I could be wrong about this. If you know, let me know too!
 
 then Dart is calling the `Precompiled__Double_0150898_toString_1175` function, supposedly to convert the double to a string instance. I won't go into the internals of that function but we get what it's doing. once that function is done, it puts its result (the pointer to the string) into the `rax` 64-bit register nad we are then pushing `rax` into the stack just before calling the `Precompiled____printToConsole_146` function which will read that value from its stack using the `rbp` and `rsp`. so to summarize, `const double` values are not really loaded into the stack in Dart the same way as `const int`. I don't know why! They _could_ be though, if they were just treated as a 64-bit value and placed right into a 64-bit register like `rax`! If you're a compiler engineer at Google or know why this is not the case, please do chime in.
+
+Conclusions
+
+- constant `int` are placed inside a register (not even in the stack) directly and then worked with
+- constant `double` values
