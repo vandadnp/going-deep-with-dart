@@ -497,6 +497,8 @@ so here `eax` is for sure the pointer to our `Person` instance which then gets s
 
 ## Conclusion
 
+the `const` syntax in Dart is, like other languages, a hint to the compiler to make both your life and the compiler's life easier. some calculations might be done at compile-time to even make the code run faster such as our `Person` class above where we only stored the person's age and then printed that age property directly to the screen. No `Person` instance was then created in that case. But when we made the `Person` class carry more information and have a computed property, things got more complicated. Here are a few takeaways:
+
 - constant `int` are _sometimes_ placed inside a register (not even in the stack) directly and then worked with. as shown in this article `int` constants can be demoted to stack variables in some certain conditions and I don't really know the reason why!
 - constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
 - constant `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
