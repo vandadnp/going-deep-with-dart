@@ -2,4 +2,4 @@
 
 Going Deep with the [Dart language](https://dart.dev).
 
-[Prefer `const` over `final`](tip-1-prefer-const-over-final/tip-1-prefer-const-over-final.md)
+[Issue 1 - Prefer `const` over `final`](issue-1-prefer-const-over-final/issue-1-prefer-const-over-final.md)
