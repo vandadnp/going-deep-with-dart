@@ -270,6 +270,52 @@ with the data section header reading as follows:
 0000000000062002         db  0xdc ; '.'
 ```
 
+## Curious case of mixing `const int` and `const double`
+
+given the following Dart code:
+
+```dart
+import 'dart:io' show exit;
+
+const intConst = 0xDEADBEEF;
+const doubleConst = 1.2;
+void main(List<String> args) {
+  print(intConst);
+  print(doubleConst);
+  exit(0);
+}
+```
+
+i would expect the `intConst` to be loaded into `eax` as it was before in the previous section where we talked about constant integers. but that's not the case! let's look at the AOT:
+
+```asm
+                     Precompiled____main_1558:
+000000000005fad8         push       rbp                                         ; CODE XREF=Precompiled____main_main_1559+17
+000000000005fad9         mov        rbp, rsp
+000000000005fadc         cmp        rsp, qword [r14+0x40]
+000000000005fae0         jbe        loc_5fb15
+
+                     loc_5fae6:
+000000000005fae6         mov        r11, qword [r15+0x207f]                     ; CODE XREF=Precompiled____main_1558+68
+000000000005faed         push       r11
+000000000005faef         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005faf4         pop        rcx
+000000000005faf5         mov        r11, qword [r15+0x2087]
+000000000005fafc         push       r11
+000000000005fafe         call       Precompiled____print_813                    ; Precompiled____print_813
+000000000005fb03         pop        rcx
+000000000005fb04         call       Precompiled____exit_1070                    ; Precompiled____exit_1070
+000000000005fb09         mov        rax, qword [r14+0xc8]
+000000000005fb10         mov        rsp, rbp
+000000000005fb13         pop        rbp
+000000000005fb14         ret
+                        ; endp
+
+                     loc_5fb15:
+000000000005fb15         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1558+8
+000000000005fb1c         jmp        loc_5fae6
+```
+
 ## Conclusion
 
 - constant `int` are placed inside a register (not even in the stack) directly and then worked with
