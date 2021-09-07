@@ -333,6 +333,30 @@ Precompiled____print_813(rdi, rsi, rdx, rcx, r8, r9, stack[-16]);
 
 so this way we are loading the pointer to the `intConst` into the stack and then calling the `Precompiled____print_813` function with that value placed in the stack. the `intConst` got demoted from a constant register value to a stack value for some reason. I think only a dart compiler engineer at Google can answer why this demotion happened to be honest. If you know the answer please let me know.
 
+## `const` custom classes
+
+let's have a look at a constant custom class:
+
+```dart
+import 'dart:io' show exit;
+
+class Person {
+  final int age;
+  const Person(this.age);
+}
+void main(List<String> args) {
+  final foo = Person(0xDEADBEEF);
+  print(foo.age);
+  exit(0);
+}
+```
+
+that compiles to the following AOT:
+
+```asm
+
+```
+
 ## Conclusion
 
 - constant `int` are _sometimes_ placed inside a register (not even in the stack) directly and then worked with. as shown in this article `int` constants can be demoted to stack variables in some certain conditions and I don't really know the reason why!
