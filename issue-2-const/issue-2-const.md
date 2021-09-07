@@ -133,6 +133,29 @@ void main(List<String> args) {
 
 we get the following AOT:
 
+```asm
+                     Precompiled____main_1558:
+000000000005fab8         push       rbp                                         ; CODE XREF=Precompiled____main_main_1559+17
+000000000005fab9         mov        rbp, rsp
+000000000005fabc         cmp        rsp, qword [r14+0x40]
+000000000005fac0         jbe        loc_5fadc
+
+                     loc_5fac6:
+000000000005fac6         call       Precompiled____print_813                    ; Precompiled____print_813, CODE XREF=Precompiled____main_1558+43
+000000000005facb         call       Precompiled____exit_1070                    ; Precompiled____exit_1070
+000000000005fad0         mov        rax, qword [r14+0xc8]
+000000000005fad7         mov        rsp, rbp
+000000000005fada         pop        rbp
+000000000005fadb         ret
+                        ; endp
+
+                     loc_5fadc:
+000000000005fadc         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1558+8
+000000000005fae3         jmp        loc_5fac6
+```
+
+this is very similar to the `const double` AOT if you look closely, so let's go deep into the `Precompiled____print_813` function and see what's happening there:
+
 ## Conclusion
 
 - constant `int` are placed inside a register (not even in the stack) directly and then worked with
