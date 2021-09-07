@@ -117,7 +117,23 @@ the first part of the code before the linebreak is the setting up of the local s
 
 then Dart is calling the `Precompiled__Double_0150898_toString_1175` function, supposedly to convert the double to a string instance. I won't go into the internals of that function but we get what it's doing. once that function is done, it puts its result (the pointer to the string) into the `rax` 64-bit register nad we are then pushing `rax` into the stack just before calling the `Precompiled____printToConsole_146` function which will read that value from its stack using the `rbp` and `rsp`. so to summarize, `const double` values are not really loaded into the stack in Dart the same way as `const int`. I don't know why! They _could_ be though, if they were just treated as a 64-bit value and placed right into a 64-bit register like `rax`! If you're a compiler engineer at Google or know why this is not the case, please do chime in.
 
-Conclusions
+## `const String`
+
+given the following Dart code:
+
+```dart
+import 'dart:io' show exit;
+
+const stringConst = 'Hello, World!';
+void main(List<String> args) {
+  print(stringConst);
+  exit(0);
+}
+```
+
+we get the following AOT:
+
+## Conclusion
 
 - constant `int` are placed inside a register (not even in the stack) directly and then worked with
 - constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
