@@ -156,7 +156,122 @@ we get the following AOT:
 
 this is very similar to the `const double` AOT if you look closely, so let's go deep into the `Precompiled____print_813` function and see what's happening there:
 
+```asm
+000000000003745c         push       rbp                                         ; CODE XREF=Precompiled____main_1558+14
+000000000003745d         mov        rbp, rsp
+0000000000037460         cmp        rsp, qword [r14+0x40]
+0000000000037464         jbe        loc_3747b
+
+                     loc_3746a:
+000000000003746a         call       Precompiled____printToConsole_146           ; Precompiled____printToConsole_146, CODE XREF=Precompiled____print_813+38
+000000000003746f         mov        rax, qword [r14+0xc8]
+0000000000037476         mov        rsp, rbp
+0000000000037479         pop        rbp
+000000000003747a         ret
+                        ; endp
+
+                     loc_3747b:
+000000000003747b         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____print_813+8
+0000000000037482         jmp        loc_3746a
+```
+
+okay that was unexpected! the main function called this function and all this function is doing is just calling another function called `Precompiled____printToConsole_146` and nowhere here call we find any reference to our string. I find this to be one layer too much, but I could be wrong here. let's see what's happening inside the `Precompiled____printToConsole_146` function:
+
+```asm
+000000000000f2ec         push       rbp                                         ; CODE XREF=Precompiled____print_813+14
+000000000000f2ed         mov        rbp, rsp
+000000000000f2f0         cmp        rsp, qword [r14+0x40]
+000000000000f2f4         jbe        loc_f346
+
+                     loc_f2fa:
+000000000000f2fa         mov        rax, qword [r14+0x88]                       ; CODE XREF=Precompiled____printToConsole_146+97
+000000000000f301         mov        rax, qword [rax+0x38]
+000000000000f305         cmp        rax, qword [r15+0x27]
+000000000000f309         jne        loc_f31b
+
+000000000000f30f         mov        rax, qword [r15+0x1867]
+000000000000f316         call       Precompiled_Stub__iso_stub_InitStaticFieldStub ; Precompiled_Stub__iso_stub_InitStaticFieldStub
+
+                     loc_f31b:
+000000000000f31b         mov        rcx, qword [rax+0x1f]                       ; CODE XREF=Precompiled____printToConsole_146+29
+000000000000f31f         push       rax
+000000000000f320         mov        r11, qword [r15+0x20af]
+000000000000f327         push       r11
+000000000000f329         mov        rax, rcx
+000000000000f32c         mov        r10, qword [r15+0x7f]
+000000000000f330         mov        rcx, qword [rax+0xf]
+000000000000f334         call       rcx
+000000000000f336         pop        r11
+000000000000f338         pop        r11
+000000000000f33a         mov        rax, qword [r14+0xc8]
+000000000000f341         mov        rsp, rbp
+000000000000f344         pop        rbp
+000000000000f345         ret
+                        ; endp
+
+                     loc_f346:
+000000000000f346         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____printToConsole_146+8
+000000000000f34d         jmp        loc_f2fa
+```
+
+the part we're interested in is this:
+
+```asm
+                     loc_f31b:
+000000000000f31b         mov        rcx, qword [rax+0x1f]                       ; CODE XREF=Precompiled____printToConsole_146+29
+000000000000f31f         push       rax
+000000000000f320         mov        r11, qword [r15+0x20af]
+000000000000f327         push       r11
+000000000000f329         mov        rax, rcx
+000000000000f32c         mov        r10, qword [r15+0x7f]
+000000000000f330         mov        rcx, qword [rax+0xf]
+000000000000f334         call       rcx
+```
+
+it's interesting that in the other cases, the print function was being called with a call function and just a reference to the label (function name) but in this case the pointer to the print function is being loaded into the 64-bit register `ecx` (first line of code) and then called finally on the last line! the strange part is that `[rax+0x1f]` is literally a pointer to `000000000000f309 jne loc_f31b` which is jump short if not equal (if zero flag is 0, check EFLAGS in Intel references). this is way above my head and I don't really understand what `Precompiled_Stub__iso_stub_InitStaticFieldStub` does to be honest, but from the looks of it, it seems like it loads a given (through a push on the stack) static string from the data sector into the memory so that it can be used. But if you know better, please let me know too. Here is the data sector's placement of our string though if you can solve this mystery out yourself
+
+```asm
+0000000000084b30         db  0x48 ; 'H'
+0000000000084b31         db  0x65 ; 'e'
+0000000000084b32         db  0x6c ; 'l'
+0000000000084b33         db  0x6c ; 'l'
+0000000000084b34         db  0x6f ; 'o'
+0000000000084b35         db  0x2c ; ','
+0000000000084b36         db  0x20 ; ' '
+0000000000084b37         db  0x57 ; 'W'
+0000000000084b38         db  0x6f ; 'o'
+0000000000084b39         db  0x72 ; 'r'
+0000000000084b3a         db  0x6c ; 'l'
+0000000000084b3b         db  0x64 ; 'd'
+0000000000084b3c         db  0x21 ; '!'
+```
+
+with the data section header reading as follows:
+
+```asm
+        ; Segment Segment 6
+        ; Range: [0x62000; 0xb2840[ (329792 bytes)
+        ; File offset : [401408; 731200[ (329792 bytes)
+        ; Permissions: readable
+        ; Flags: 0x4
+
+
+
+        ; Section .rodata
+        ; Range: [0x62000; 0xb26f0[ (329456 bytes)
+        ; File offset : [401408; 730864[ (329456 bytes)
+        ; Flags: 0x2
+        ;   SHT_PROGBITS
+        ;   SHF_ALLOC
+
+                     _kDartIsolateSnapshotData:
+0000000000062000         db  0xf5 ; '.'
+0000000000062001         db  0xf5 ; '.'
+0000000000062002         db  0xdc ; '.'
+```
+
 ## Conclusion
 
 - constant `int` are placed inside a register (not even in the stack) directly and then worked with
 - constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
+- const `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
