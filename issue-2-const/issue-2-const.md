@@ -354,7 +354,136 @@ void main(List<String> args) {
 that compiles to the following AOT:
 
 ```asm
+000000000005faec         push       rbp                                         ; CODE XREF=Precompiled____main_main_1559+17
+000000000005faed         mov        rbp, rsp
+000000000005faf0         cmp        rsp, qword [r14+0x40]
+000000000005faf4         jbe        loc_5fb17
 
+                     loc_5fafa:
+000000000005fafa         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1558+50
+000000000005faff         push       rax
+000000000005fb00         call       Precompiled____print_812                    ; Precompiled____print_812
+000000000005fb05         pop        rcx
+000000000005fb06         call       Precompiled____exit_1066                    ; Precompiled____exit_1066
+000000000005fb0b         mov        rax, qword [r14+0xc8]
+000000000005fb12         mov        rsp, rbp
+000000000005fb15         pop        rbp
+000000000005fb16         ret
+                        ; endp
+
+                     loc_5fb17:
+000000000005fb17         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1558+8
+000000000005fb1e         jmp        loc_5fafa
+```
+
+this is great, and just as you'd expect it. the 32-bit value of `0xdeadbeef` that was assigned to the `age` of the `Person` instance is placed right into the `eax` 32-bit register and then printed to the screen. nice, no instance of the `Person` class was even created.
+
+now let's make it more complicated and have some logic in the initializer of the `Person` class:
+
+```dart
+import 'dart:io' show exit;
+
+class Person {
+  final int age;
+  const Person(int age) : this.age = age + 0xFEEDFEED;
+}
+void main(List<String> args) {
+  final foo = Person(0xDEADBEEF);
+  print(foo.age);
+  exit(0);
+}
+```
+
+and get the following AOT:
+
+```asm
+
+                     Precompiled____main_1558:
+000000000005faec         push       rbp                                         ; CODE XREF=Precompiled____main_main_1559+17
+000000000005faed         mov        rbp, rsp
+000000000005faf0         cmp        rsp, qword [r14+0x40]
+000000000005faf4         jbe        loc_5fb1c
+
+                     loc_5fafa:
+000000000005fafa         movabs     rax, 0x1dd9bbddc                            ; CODE XREF=Precompiled____main_1558+55
+000000000005fb04         push       rax
+000000000005fb05         call       Precompiled____print_812                    ; Precompiled____print_812
+000000000005fb0a         pop        rcx
+000000000005fb0b         call       Precompiled____exit_1066                    ; Precompiled____exit_1066
+000000000005fb10         mov        rax, qword [r14+0xc8]
+000000000005fb17         mov        rsp, rbp
+000000000005fb1a         pop        rbp
+000000000005fb1b         ret
+                        ; endp
+
+                     loc_5fb1c:
+000000000005fb1c         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1558+8
+000000000005fb23         jmp        loc_5fafa
+```
+
+this is also really neat. what Dart did here was that it took `0xdeadbeef` and found out that the constructor of the `Person` class is doing some calculation with that value, which in this case is to add `0xfeedfeed` to it and if you calculate that yourself you'll get `0x1DD9BBDDC` and it placed that value directly in the `rax` 32-bit register and passed it to the print statement. Neat huh?
+
+let's make the `Person` class more complicated and exciting:
+
+```dart
+import 'dart:io' show exit;
+
+class Person {
+  final String firstName;
+  final String lastName;
+  final String fullName;
+
+const Person(this.firstName, this.lastName) : fullName = '$firstName $lastName';
+}
+void main(List<String> args) {
+  final foo = Person('Foo', 'Bar');
+  print(foo);
+  exit(0);
+}
+```
+
+to get the following AOT:
+
+```asm
+                     Precompiled____main_1558:
+000000000005fac0         push       rbp                                         ; CODE XREF=Precompiled____main_main_1560+17
+000000000005fac1         mov        rbp, rsp
+000000000005fac4         cmp        rsp, qword [r14+0x40]
+000000000005fac8         jbe        loc_5faeb
+
+                     loc_5face:
+000000000005face         call       Precompiled_AllocationStub_Person_1559      ; Precompiled_AllocationStub_Person_1559, CODE XREF=Precompiled____main_1558+50
+000000000005fad3         push       rax
+000000000005fad4         call       Precompiled____print_812                    ; Precompiled____print_812
+000000000005fad9         pop        rcx
+000000000005fada         call       Precompiled____exit_1066                    ; Precompiled____exit_1066
+000000000005fadf         mov        rax, qword [r14+0xc8]
+000000000005fae6         mov        rsp, rbp
+000000000005fae9         pop        rbp
+000000000005faea         ret
+                        ; endp
+
+                     loc_5faeb:
+000000000005faeb         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1558+8
+000000000005faf2         jmp        loc_5face
+```
+
+oh, spicy! now we got some juice out of the example. you can see how the first line of the `loc_5face` label is making a call to the `Precompiled_AllocationStub_Person_1559` procedure. In this case, since our example got more complicated and involves two `String` final values to construct the eventual instance of the `Person` class, Dart doesn't seem to be able to optimize the implementation since `print(foo)` will internally call the `toString()` function of `Person` which we haven't overwritten, so it will have to make an instance of the `Person` class which is an `Object` and internally call that function to print out the `toString()` result. lots going on here but one thing at a time, let's look at `Precompiled_AllocationStub_Person_1559` and see what's going on there:
+
+```asm
+                     Precompiled_AllocationStub_Person_1559:
+000000000005faf4         mov        r8d, 0xc70104                               ; CODE XREF=Precompiled____main_1558+14
+000000000005fafa         jmp        qword [r14+0x228]
+                        ; endp
+```
+
+which is another interpretation of the following pseudo-code:
+
+```asm
+void Precompiled_AllocationStub_Person_1559() {
+    (*(r14 + 0x228))();
+    return;
+}
 ```
 
 ## Conclusion
