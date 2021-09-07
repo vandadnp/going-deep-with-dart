@@ -486,8 +486,19 @@ void Precompiled_AllocationStub_Person_1559() {
 }
 ```
 
+since I am not debuggin the code while looking at the code, I can't be 100% sure what's lurking inside the `(*(r14 + 0x228))` pointer but it's for sure a function since it is being jumped to using the `jmp` instruction. the double-word register of r8d is being set to `0xc70104` though so that could be the parameter to the function lurking behind the pointer. this could all be the internals of Dart OR I may just not know what I'm talking about to be honest but for me this seems like an allocation function that is hidden from plain-sight and is creating a new instance of the `Person` class and placing its pointer in the `eax` register since if you look again at the original asm code, you'll see this:
+
+```asm
+000000000005fad3         push       rax
+000000000005fad4         call       Precompiled____print_812                    ; Precompiled____print_812
+```
+
+so here `eax` is for sure the pointer to our `Person` instance which then gets sent to `Precompiled____print_812` which internally calls the `toString()` function on that instance.
+
 ## Conclusion
 
 - constant `int` are _sometimes_ placed inside a register (not even in the stack) directly and then worked with. as shown in this article `int` constants can be demoted to stack variables in some certain conditions and I don't really know the reason why!
 - constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
-- const `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
+- constant `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
+- constant custom class instances, if just placeholders for data, and depending on what you are doing with those instances, could simply be calculated at compile-time and placed inside CPU registers to be used.
+- constant custom class instances, if more complicated and doing calculations such as string concatenation, and depending on what you do with those instances, may need to be allocated at run-time into their instances, resolved to proper pointers in the heap, and then passed around to different functions to be processed.
