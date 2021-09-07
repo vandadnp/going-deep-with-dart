@@ -316,8 +316,25 @@ i would expect the `intConst` to be loaded into `eax` as it was before in the pr
 000000000005fb1c         jmp        loc_5fae6
 ```
 
+now all of a sudden the `intConst` is not placed in the `eax` register anymore, instead it is loaded like this:
+
+```asm
+000000000005fae6         mov        r11, qword [r15+0x207f]                     ; CODE XREF=Precompiled____main_1558+68
+000000000005faed         push       r11
+000000000005faef         call       Precompiled____print_813                    ; Precompiled____print_813
+```
+
+this is pretty much another way of saying:
+
+```asm
+    stack[-16] = *(r15 + 0x207f);
+    Precompiled____print_813(rdi, rsi, rdx, rcx, r8, r9, stack[-16]);
+```
+
+so this way we are loading the pointer to the `intConst` into the stack and then calling the `Precompiled____print_813` function with that value placed in the stack. the `intConst` got demoted from a constant register value to a stack value for some reason. I think only a dart compiler engineer at Google can answer why this demotion happened to be honest. If you know the answer please let me know.
+
 ## Conclusion
 
-- constant `int` are placed inside a register (not even in the stack) directly and then worked with
+- constant `int` are _sometimes_ placed inside a register (not even in the stack) directly and then worked with. as shown in this article `int` constants can be demoted to stack variables in some certain conditions and I don't really know the reason why!
 - constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
 - const `String` instances are first loaded into the memory through 2 layers of function calls and then printed to the screen
