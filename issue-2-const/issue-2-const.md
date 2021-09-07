@@ -120,4 +120,4 @@ then Dart is calling the `Precompiled__Double_0150898_toString_1175` function, s
 Conclusions
 
 - constant `int` are placed inside a register (not even in the stack) directly and then worked with
-- constant `double` values
+- constant `double` values are loaded from memory (not placed directly inside a register, unlike constant `int` values) and then used
