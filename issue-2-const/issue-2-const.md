@@ -327,8 +327,8 @@ now all of a sudden the `intConst` is not placed in the `eax` register anymore, 
 this is pretty much another way of saying:
 
 ```asm
-    stack[-16] = *(r15 + 0x207f);
-    Precompiled____print_813(rdi, rsi, rdx, rcx, r8, r9, stack[-16]);
+stack[-16] = *(r15 + 0x207f);
+Precompiled____print_813(rdi, rsi, rdx, rcx, r8, r9, stack[-16]);
 ```
 
 so this way we are loading the pointer to the `intConst` into the stack and then calling the `Precompiled____print_813` function with that value placed in the stack. the `intConst` got demoted from a constant register value to a stack value for some reason. I think only a dart compiler engineer at Google can answer why this demotion happened to be honest. If you know the answer please let me know.
