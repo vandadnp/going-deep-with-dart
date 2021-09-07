@@ -5,7 +5,7 @@ Let's go deep with `const` in Dart and see how it works under the hood.
 - [`const` in Dart](#const-in-dart)
   - [What is `const`?](#what-is-const)
   - [`const int`](#const-int)
-- [`const double`](#const-double)
+  - [`const double`](#const-double)
   - [`const String`](#const-string)
   - [Curious case of mixing `const int` and `const double`](#curious-case-of-mixing-const-int-and-const-double)
   - [`const` custom classes](#const-custom-classes)
@@ -58,7 +58,7 @@ we will get the following AOT compilation:
 
 there are no surprises there, the const value is placed right inside the `eax` 32-bit register (not sure why we are using eax here and not `rax`, could it be because it's faster?), and then pushed into the stack using the `push` instruction, and then we are calling the `Precompiled____print_813` procedure to print it to the console. The thing to note is how the value of that integer was placed in the stack (as opposed to the heap) and then printed immediately.
 
-# `const double`
+## `const double`
 
 given the following Dart code:
 
