@@ -229,7 +229,66 @@ int Precompiled____main_1434(int arg0, int arg1, int arg2, int arg3, int arg4, i
 }
 ```
 
+## The curious case of the unoptimized empty `for` loop
+
+for the given Dart code:
+
+```dart
+import 'dart:io' show exit;
+
+void main(List<String> args) {
+  for (var x = 0xDEADBEEF; x < 0xFEEDFEED; x++) {}
+  exit(0);
+}
+```
+
+we get the following AOT code 🤦🏻‍♂️:
+
+```asm
+                     Precompiled____main_1433:
+000000000009a644         push       rbp                                         ; CODE XREF=Precompiled____main_main_1434+17
+000000000009a645         mov        rbp, rsp
+000000000009a648         cmp        rsp, qword [r14+0x40]
+000000000009a64c         jbe        loc_9a687
+
+                     loc_9a652:
+000000000009a652         mov        eax, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1433+74
+
+                     loc_9a657:
+000000000009a657         cmp        rsp, qword [r14+0x40]                       ; CODE XREF=Precompiled____main_1433+48
+000000000009a65b         jbe        loc_9a690
+
+                     loc_9a661:
+000000000009a661         mov        r11d, 0xfeedfeed                            ; CODE XREF=Precompiled____main_1433+83
+000000000009a667         cmp        rax, r11
+000000000009a66a         jge        loc_9a676
+
+000000000009a670         add        rax, 0x1
+000000000009a674         jmp        loc_9a657
+
+                     loc_9a676:
+000000000009a676         call       Precompiled____exit_1015                    ; Precompiled____exit_1015, CODE XREF=Precompiled____main_1433+38
+000000000009a67b         mov        rax, qword [r14+0xc8]
+000000000009a682         mov        rsp, rbp
+000000000009a685         pop        rbp
+000000000009a686         ret
+                        ; endp
+
+                     loc_9a687:
+000000000009a687         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1433+8
+000000000009a68e         jmp        loc_9a652
+
+                     loc_9a690:
+000000000009a690         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1433+23
+000000000009a697         jmp        loc_9a661
+```
+
+this is very similar, if not identical to the previous code we looked at, and the problem I have with this code is that the Dart compiler didn't understand that this was an empty loop, and really created the loop code for it! Is this a bug? It could be. If you're a person working on the Dart compiler maybe you could sort this out!
+
+For us Dart developers though this means that if you have a `for` loop somewhere with a variable, make sure it does something 😂
+
 ## Conclusions
 
 - Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
 - Dart keeps, if possible, both the initial and the upper/lower bound of a `for` loop inside CPU registers, speeding up calculations. 
+- Dart doesn't seem to be able to optimize out empty `for` loops with indices! But hopefully you're not writing loops that don't do anything!
