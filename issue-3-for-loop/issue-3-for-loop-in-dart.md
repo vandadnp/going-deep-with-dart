@@ -2,6 +2,16 @@
 
 Let's go deep into how `for` loops work in Dart.
 
+- [`for` loop in Dart](#for-loop-in-dart)
+  - [What is a `for` loop?](#what-is-a-for-loop)
+  - [`for` loop with index](#for-loop-with-index)
+  - [The curious case of the unoptimized empty `for` loop](#the-curious-case-of-the-unoptimized-empty-for-loop)
+  - [Non-entry `for` loops with `const` start/end values](#non-entry-for-loops-with-const-startend-values)
+  - [`for` loops over variable iterables](#for-loops-over-variable-iterables)
+  - [`for` loop over `const` iterables](#for-loop-over-const-iterables)
+  - [Conclusions](#conclusions)
+  - [References](#references)
+
 ## What is a `for` loop?
 
 There are two types of `for` loops in Dart:
@@ -496,3 +506,9 @@ so there you have it, Dart seems to favor traditionl `for` loops *without* itera
 - Dart keeps, if possible, both the initial and the upper/lower bound of a `for` loop inside CPU registers, speeding up calculations. 
 - Dart doesn't seem to be able to optimize out empty `for` loops with indices! But hopefully you're not writing loops that don't do anything!
 - Dart optimizes out non-entry loops as long as conditions are compile-time constants!
+- Dart (at least my version of Dart `2.14.0 ` on the `stable` channel) tends to favor (asm-code wise) the looping over iterables using a traditional `for` loop as opposed to the more modern `for` loop over an iterable!
+
+## References
+
+- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture
+- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z
