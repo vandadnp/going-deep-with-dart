@@ -390,7 +390,22 @@ void main(List<String> args) {
 }
 ```
 
-we will get [the following AOT code](snippet-1.md). I've decided not to paste that whole thing here since it is too long.
+we will get [the following AOT code](snippet-1.md). I've decided not to paste that whole thing here since it is too long. the first thing you will notice is how long the code is and that Dart seems to be using some threading functions such as `AllocateMintSharedWithoutFPURegs` which you can find references to in the [Dart's actual source code](https://github.com/dart-lang/sdk/blob/e995cb5f7cd67d39c1ee4bdbe95c8241db36725f/runtime/vm/thread.h). This is way above my head since I haven't had the time to dive deep into the Dart's compiler code itself but I can certainly see the generated AOT and relalize that it is **not** smart. it would have been much smarter for Dart to realize that there are only two values in this iterable and simply made a normal `for` loop into that.
+
+let's now convert this `for` with iterable into a traditional `for` loop and see what the AOT is:
+
+```dart
+import 'dart:io' show exit;
+
+const values = [0xDEADBEEF, 0xFEEDFEED];
+
+void main(List<String> args) {
+  for (var i = 0; i < values.length; i++) {
+    print(values[i]);
+  }
+  exit(0);
+}
+```
 
 ## Conclusions
 
