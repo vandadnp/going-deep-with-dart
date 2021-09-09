@@ -478,6 +478,18 @@ in this example we have a simple loop that is being incremented 1 value at a tim
 000000000009a70a         jmp        loc_9a6b4
 ```
 
+and the `value` is being retrieved from the `values` constant `List<int>` using an effective address calculated with `rcx` holding the index (`i`):
+
+```asm
+                     loc_9a6e7:
+000000000009a6e7         push       rcx                                         ; CODE XREF=Precompiled____main_1434+64
+000000000009a6e8         mov        rcx, rbx
+000000000009a6eb         mov        rax, qword [r14+0x60]
+000000000009a6ef         call       qword [rax+rcx*8+0x58d8]
+```
+
+so there you have it, Dart seems to favor traditionl `for` loops *without* iterables over the more modern `for` loop over an iterable 🤷🏻‍♂️
+
 ## Conclusions
 
 - Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
