@@ -407,6 +407,77 @@ void main(List<String> args) {
 }
 ```
 
+this generates the following AOT:
+
+```asm
+                     Precompiled____main_1434:
+000000000009a6a0         push       rbp                                         ; CODE XREF=Precompiled____main_main_1435+17
+000000000009a6a1         mov        rbp, rsp
+000000000009a6a4         sub        rsp, 0x8
+000000000009a6a8         cmp        rsp, qword [r14+0x40]
+000000000009a6ac         jbe        loc_9a71d
+
+                     loc_9a6b2:
+000000000009a6b2         xor        edx, edx                                    ; CODE XREF=Precompiled____main_1434+132
+
+                     loc_9a6b4:
+000000000009a6b4         mov        rax, qword [r15+0x1e07]                     ; CODE XREF=Precompiled____main_1434+106
+000000000009a6bb         mov        qword [rbp+var_8], rdx
+000000000009a6bf         cmp        rsp, qword [r14+0x40]
+000000000009a6c3         jbe        loc_9a726
+
+                     loc_9a6c9:
+000000000009a6c9         cmp        rdx, 0x2                                    ; CODE XREF=Precompiled____main_1434+141
+000000000009a6cd         jge        loc_9a70c
+
+000000000009a6d3         mov        rcx, qword [rax+rdx*8+0x17]
+000000000009a6d8         test       cl, 0x1
+000000000009a6db         mov        ebx, 0x35
+000000000009a6e0         je         loc_9a6e7
+
+000000000009a6e2         movzx      rbx, word [rcx+1]
+
+                     loc_9a6e7:
+000000000009a6e7         push       rcx                                         ; CODE XREF=Precompiled____main_1434+64
+000000000009a6e8         mov        rcx, rbx
+000000000009a6eb         mov        rax, qword [r14+0x60]
+000000000009a6ef         call       qword [rax+rcx*8+0x58d8]
+000000000009a6f6         pop        r11
+000000000009a6f8         push       rax
+000000000009a6f9         call       Precompiled____printToConsole_149           ; Precompiled____printToConsole_149
+000000000009a6fe         pop        rcx
+000000000009a6ff         mov        rax, qword [rbp+var_8]
+000000000009a703         add        rax, 0x1
+000000000009a707         mov        rdx, rax
+000000000009a70a         jmp        loc_9a6b4
+
+                     loc_9a70c:
+000000000009a70c         call       Precompiled____exit_1023                    ; Precompiled____exit_1023, CODE XREF=Precompiled____main_1434+45
+000000000009a711         mov        rax, qword [r14+0xc8]
+000000000009a718         mov        rsp, rbp
+000000000009a71b         pop        rbp
+000000000009a71c         ret
+                        ; endp
+
+                     loc_9a71d:
+000000000009a71d         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1434+12
+000000000009a724         jmp        loc_9a6b2
+
+                     loc_9a726:
+000000000009a726         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1434+35
+```
+
+it's sad to say that the traditional `for` variant in this case is actually more performant and without a doubt easier for the compiler to solve since there are no iterables to iterate through. note that the iteration is being done using the `for` with an index, so no iterables are being created unlike the previous example.
+
+in this example we have a simple loop that is being incremented 1 value at a time (`0x01`) like this:
+
+```asm
+000000000009a6ff         mov        rax, qword [rbp+var_8]
+000000000009a703         **add        rax, 0x1**
+000000000009a707         mov        rdx, rax
+000000000009a70a         jmp        loc_9a6b4
+```
+
 ## Conclusions
 
 - Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
