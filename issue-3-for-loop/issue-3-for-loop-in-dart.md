@@ -91,3 +91,44 @@ we will get the following AOT:
 000000000009a736         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1434+31
 000000000009a73d         jmp        loc_9a6c5
 ```
+
+let's break this down and see what's going on:
+
+```asm
+000000000009a6a0         push       rbp                                         ; CODE XREF=Precompiled____main_main_1435+17
+000000000009a6a1         mov        rbp, rsp
+000000000009a6a4         sub        rsp, 0x8
+000000000009a6a8         cmp        rsp, qword [r14+0x40]
+000000000009a6ac         jbe        loc_9a72a
+```
+
+with the following pseudo-code:
+
+```asm
+ if (rsp <= *(r14 + 0x40)) {
+         (*(r14 + 0x240))();
+ }
+```
+this all is setting up the stack for us so there is nothing fancy that we should dive into. the next part of the code is this cute little guy:
+
+```asm
+                     loc_9a6b2:
+000000000009a6b2         mov        edx, 0xdeadbeef                             ; CODE XREF=Precompiled____main_1434+145
+```
+
+and this is moving the starting value of the `x` variable into the 32-bit register of `edx` since Dart realizes that the initial value of the `x` variable is indeed a constant so it places it inside a register immediately. I don't yet know why Dart doesn't use the 64-bit `rdx` register when it does these moves, but maybe the CPU does that internally!
+
+the next part is this:
+
+```asm
+                     loc_9a6b7:
+000000000009a6b7         mov        qword [rbp+var_8], rdx                      ; CODE XREF=Precompiled____main_1434+119
+000000000009a6bb         cmp        rsp, qword [r14+0x40]
+000000000009a6bf         jbe        loc_9a736
+```
+
+if you look at the original assembly code and look for the `loc_9a6b7` label you'll see that there is a `loc_9a6f7` label at the end of which there is a `jmp` instruction that jumps to `loc_9a6b7`. do you know what this means? This is a typical `do { ... } while (true);` statement. So you can say that `for` loops with indices in Dart are created internally using a `while` loop!
+
+## Conclusions
+
+- Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
