@@ -6,7 +6,7 @@ Let's go deep into how `for` loops work in Dart.
 
 There are two types of `for` loops in Dart:
 
-- item 1
-- item 2
+1. `for ([final/var] x = N; x [<|<=|>|>=] y; x += y)`
+2. `for (final x in y(iter))`
 
 
