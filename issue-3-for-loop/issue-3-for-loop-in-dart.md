@@ -129,6 +129,67 @@ the next part is this:
 
 if you look at the original assembly code and look for the `loc_9a6b7` label you'll see that there is a `loc_9a6f7` label at the end of which there is a `jmp` instruction that jumps to `loc_9a6b7`. do you know what this means? This is a typical `do { ... } while (true);` statement. So you can say that `for` loops with indices in Dart are created internally using a `while` loop!
 
+back to the assembly code, this was another way of writing the following pseudo-code:
+
+```asm
+var_8 = rdx;
+if (rsp <= *(r14 + 0x40)) {
+   (*(r14 + 0x240))();
+}
+```
+
+remember the value of `0xdeadbeef` being stored in `edx`? well, `edx` are the lower 32-bits of the `rdx` register so by doing this `mov qword [rbp+var_8], rdx`, it seems like Dart is simply storing the initial value of our variable into the stack, since it is using `rbp` (64-bit base pointer). the `cmp` and the `jpm` instruction I cannot be sure right now as to their purpose but let's carry on and ignore those for now!
+
+then we have the next chunk of code like this:
+
+```asm
+                     loc_9a6c5:
+000000000009a6c5         mov        r11d, 0xfeedfeed                            ; CODE XREF=Precompiled____main_1434+157
+000000000009a6cb         cmp        rdx, r11
+000000000009a6ce         jge        loc_9a719
+```
+
+remember how Dart placed `0xdeadbeef` inside the `edx` register? well since that's the lower 32-bits of the `rdx` register Dart is now comparing that value to the `r11` register which is a quadword register (fancy way of saying 64-bits register) and its lower 32-bits value are inside `r11d` dword register. don't worry if this all sounds weird for now but know that Dart is storing both the initial and the upper-bound values of our loop variable in two CPU registers, `rdx` and `r11`!
+
+the next interesting part of the code for us is this
+
+```asm
+                     loc_9a6f7:
+000000000009a6f7         push       rax                                         ; CODE XREF=Precompiled____main_1434+80
+000000000009a6f8         mov        rax, qword [r14+0x60]
+000000000009a6fc         call       qword [rax+rcx*8+0x58d8]
+000000000009a703         pop        r11
+000000000009a705         push       rax
+000000000009a706         call       Precompiled____printToConsole_149           ; Precompiled____printToConsole_149
+000000000009a70b         pop        rcx
+000000000009a70c         mov        rax, qword [rbp+var_8]
+000000000009a710         add        rax, 0x1
+000000000009a714         mov        rdx, rax
+000000000009a717         jmp        loc_9a6b7
+```
+
+especially the `mov        rax, qword [r14+0x60]` and the `push       rax` calls where the actual value of the `x` variable is being loaded to the 64-bit `rax` register and then pushed into the stack to later be used by the `Precompiled____printToConsole_149` function. So this all is quite normal but the exciting part is this:
+
+```asm
+000000000009a710         add        rax, 0x1
+000000000009a714         mov        rdx, rax
+000000000009a717         jmp        loc_9a6b7
+```
+
+recall how the `edx` is supposed to hold onto our `x` variable's current value. Well, there you have it. Dart is doing `add rax, 0x01` for the `x++` part and then it's moving the value to `rdx` which is the 64-bit value with `edx` being the lower 32-bit half, essentially just adding 1 to `x` and then continuing the code until it hits `loc_9a6c5` where the value of `rdx` will be compared to the upper-bounds of our `x` variable, stored in `r11` and if the value is greater than or equal to `0xfeedfeed` (`jge        loc_9a719`) then it jumps to `loc_9a719` which is the `exit(0)` function:
+
+```asm
+                     loc_9a719:
+000000000009a719         call       Precompiled____exit_1023                    ; Precompiled____exit_1023, CODE XREF=Precompiled____main_1434+46
+000000000009a71e         mov        rax, qword [r14+0xc8]
+000000000009a725         mov        rsp, rbp
+000000000009a728         pop        rbp
+000000000009a729         ret
+                        ; endp
+```
+
+
 ## Conclusions
 
 - Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
+- Dart keeps, if possible, both the initial and the upper/lower bound of a `for` loop inside CPU registers, speeding up calculations. 
