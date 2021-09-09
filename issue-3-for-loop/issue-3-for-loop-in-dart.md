@@ -473,7 +473,7 @@ in this example we have a simple loop that is being incremented 1 value at a tim
 
 ```asm
 000000000009a6ff         mov        rax, qword [rbp+var_8]
-000000000009a703         **add        rax, 0x1**
+000000000009a703         add        rax, 0x1
 000000000009a707         mov        rdx, rax
 000000000009a70a         jmp        loc_9a6b4
 ```
