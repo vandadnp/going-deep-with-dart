@@ -187,7 +187,47 @@ recall how the `edx` is supposed to hold onto our `x` variable's current value. 
 000000000009a729         ret
                         ; endp
 ```
+here you can see the entire pseudo-code for this asm code:
 
+```asm
+int Precompiled____main_1434(int arg0, int arg1, int arg2, int arg3, int arg4, int arg5) {
+   r9 = arg5;
+   r8 = arg4;
+   rcx = arg3;
+   rsi = arg1;
+   rdi = arg0;
+   if (rsp <= *(r14 + 0x40)) {
+         (*(r14 + 0x240))();
+   }
+   rdx = 0xffffffffdeadbeef;
+   do {
+      var_8 = rdx;
+      if (rsp <= *(r14 + 0x40)) {
+         (*(r14 + 0x240))();
+      }
+      if (rdx >= 0xfffffffffeedfeed) {
+         break;
+      }
+      rax = rdx + rdx;
+      if (OVERFLOW(rax)) {
+         rax = Precompiled_Stub__iso_stub_AllocateMintSharedWithoutFPURegsStub(rdi, rsi, rdx, rcx, r8, r9, var_8, stack[-8], stack[0], stack[8], stack[16], stack[24], stack[32], stack[40], stack[48], stack[56], stack[64], stack[72], stack[80]);
+         *(rax + 0x7) = rdx;
+      }
+      rcx = 0x35;
+      if ((rax & 0x1) != 0x0) {
+         rcx = *(int16_t *)(rax + 0x1) & 0xffff;
+      }
+      stack[-24] = (*(*(r14 + 0x60) + rcx * 0x8 + 0x58d8))();
+      Precompiled____printToConsole_149(rdi, rsi, rdx, rcx, r8, r9, stack[-24]);
+      rcx = stack[-24];
+      rsp = ((rsp - 0x8) + 0x8 - 0x8) + 0x8;
+      rdx = var_8 + 0x1;
+   } while (true);
+   Precompiled____exit_1023();
+   rax = *(r14 + 0xc8);
+   return rax;
+}
+```
 
 ## Conclusions
 
