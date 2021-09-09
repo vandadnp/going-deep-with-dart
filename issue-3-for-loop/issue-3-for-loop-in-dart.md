@@ -287,8 +287,114 @@ this is very similar, if not identical to the previous code we looked at, and th
 
 For us Dart developers though this means that if you have a `for` loop somewhere with a variable, make sure it does something 😂
 
+## Non-entry `for` loops with `const` start/end values
+
+for the given Dart code:
+
+```dart
+import 'dart:io' show exit;
+
+void main(List<String> args) {
+  for (var x = 0xDEADBEEF; x < 0xDEADBEEF; x++) {
+    print(x);
+  }
+  exit(0);
+}
+```
+
+we get the following AOT:
+
+```asm
+                     Precompiled____main_1433:
+000000000009a644         push       rbp                                         ; CODE XREF=Precompiled____main_main_1434+17
+000000000009a645         mov        rbp, rsp
+000000000009a648         cmp        rsp, qword [r14+0x40]
+000000000009a64c         jbe        loc_9a66d
+
+                     loc_9a652:
+000000000009a652         cmp        rsp, qword [r14+0x40]                       ; CODE XREF=Precompiled____main_1433+48
+000000000009a656         jbe        loc_9a676
+
+                     loc_9a65c:
+000000000009a65c         call       Precompiled____exit_1022                    ; Precompiled____exit_1022, CODE XREF=Precompiled____main_1433+57
+000000000009a661         mov        rax, qword [r14+0xc8]
+000000000009a668         mov        rsp, rbp
+000000000009a66b         pop        rbp
+000000000009a66c         ret
+                        ; endp
+
+                     loc_9a66d:
+000000000009a66d         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1433+8
+000000000009a674         jmp        loc_9a652
+
+                     loc_9a676:
+000000000009a676         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1433+18
+000000000009a67d         jmp        loc_9a65c
+```
+
+as you can see nowhere in this code you can find a reference to our magic numbers nor can you find a reference to the `print()` function so this is great to know that as long as the start and the end values of your `for` loops are known at compile-time (contants), and if the end value and your incremenets/decrements make it so that the loop can never produce any iterations, then Dart is able to optimize out the whole loop! Good to know!
+
+## `for` loops over variable iterables
+
+now let's imagine the following scenario that you want to iterate over a list of strings as shown here:
+
+```dart
+import 'dart:io' show exit;
+
+void main(List<String> args) {
+  for (final value in args) {
+    print(value);
+  }
+  exit(0);
+}
+```
+
+for this code, we will get a rather chunky AOT asm so I'm not going to dump the whole thing here but the jist of it is this part:
+
+```asm
+000000000009a6e6         mov        rax, qword [rbp+var_8]
+000000000009a6ea         movzx      rcx, word [rax+1]
+000000000009a6ef         push       rax
+000000000009a6f0         mov        rax, qword [r14+0x60]
+000000000009a6f4         call       qword [rax+rcx*8+0x60]
+000000000009a6f8         pop        r11
+000000000009a6fa         push       rax
+000000000009a6fb         call       Precompiled____printToConsole_141           ; Precompiled____printToConsole_141
+000000000009a700         pop        rcx
+000000000009a701         mov        rax, qword [rbp+var_8]
+000000000009a705         jmp        loc_9a6c5
+```
+
+the part to pay close attention to is here, which might actually help a lot of programmers to understand how indexing into arrays work:
+
+```asm
+000000000009a6f4         call       qword [rax+rcx*8+0x60]
+```
+
+check this out, this is just beautiful, it seems like `rax` holds the base address to a function that can access this particular memory address assigned to `args`! then `rcx` is holding the index (well done Dart compiler, that's exactly what `*cx` registers are for!) to the current item we are iterating over. so `rcx` starts at 0 for the first item in `args` so the result will be `base address + 0*8 + 0x60`, since every item in `args` has an 8 bytes (64 bits) pointer to it under x86_64, so once `rcx` is moved to the second item (index 1), we calculate `base address + 8 + 0x60` where `0x60` is most definitely the offset for where `args` is stored in the heap.
+
+## `for` loop over `const` iterables
+
+we can look at a simpler example now where the iterable is a compile-time constant:
+
+```dart
+import 'dart:io' show exit;
+
+const values = [0xDEADBEEF, 0xFEEDFEED];
+
+void main(List<String> args) {
+  for (final value in values) {
+    print(value);
+  }
+  exit(0);
+}
+```
+
+we will get the following AOT code. I've decided not to paste that whole thing here since it is too long.
+
 ## Conclusions
 
 - Dart's `for` loop with an index is internally a `do { ... } while (true);` statement under the hood!
 - Dart keeps, if possible, both the initial and the upper/lower bound of a `for` loop inside CPU registers, speeding up calculations. 
 - Dart doesn't seem to be able to optimize out empty `for` loops with indices! But hopefully you're not writing loops that don't do anything!
+- Dart optimizes out non-entry loops as long as conditions are compile-time constants!
