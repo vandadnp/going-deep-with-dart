@@ -390,7 +390,7 @@ void main(List<String> args) {
 }
 ```
 
-we will get the following AOT code. I've decided not to paste that whole thing here since it is too long.
+we will get [the following AOT code](snippet-1.md). I've decided not to paste that whole thing here since it is too long.
 
 ## Conclusions
 
