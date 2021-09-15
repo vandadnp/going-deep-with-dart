@@ -514,6 +514,34 @@ Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9
 
 I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times. Maybe this is a bug, what do I know! or maybe it's just such a difficult task to do on the compiler side to fix this that the Dart team doesn't think it's worth doing. I don't know! Do you?
 
+## `static` functions
+
+given the following Dart code:
+
+```dart
+import 'dart:io' show exit;
+import 'dart:math' show Random;
+
+class Foo {
+  static int increment(int value1, int value2) {
+    return value1 + value2;
+  }
+}
+
+void main(List<String> args) {
+  final rnd = Random();
+  final value1 = rnd.nextInt(0xDEADBEEF);
+  final value2 = rnd.nextInt(0xCAFEBABE);
+  final result = Foo.increment(value1, value2);
+  print(result);
+  exit(0);
+}
+```
+
+we get the following AOT:
+
+
+
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
