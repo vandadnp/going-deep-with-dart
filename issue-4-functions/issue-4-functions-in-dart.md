@@ -300,9 +300,108 @@ if ((bytes[0] == 0x49) || (bytes[0] == 0x4d)) {
         if ((bytes[2] & 0xc7) == (0x80 | (PP & 7))) {  // [r15+disp32]
 ```
 
+what I *do* know with almost certainty (again I could be wrong about this!) is that we will end up in this code block:
+
+```cpp
+intptr_t index = IndexFromPPLoadDisp32(pc + 3);
+const ObjectPool& pool = ObjectPool::Handle(code.GetObjectPool());
+if (!pool.IsNull() && (index < pool.Length()) &&
+    (pool.TypeAt(index) == ObjectPool::EntryType::kTaggedObject)) {
+    *obj = pool.ObjectAt(index);
+    return true;
+}
+```
+
+and Dart is getting an object pointer to our value returned from the `foo()` function using `IndexFromPPLoadDisp32` and then getting the pointer to the object pool using `code.GetObjectPool()` and then finally retrieving our object using `pool.ObjectAt(index)`. so this was interesting! even though the `foo()` function is returning a constant value (in our eyes a constant), the compiler is not understanding that and cannot promote the `0xdeadbeef` value to a constant. let's change that:
+
+```dart
+import 'dart:io' show exit;
+
+const FOO = 0xDEADBEEF;
+
+int foo() => FOO;
+
+void main(List<String> args) {
+  print(foo);
+  exit(0);
+}
+```
+
+for this code we get the following AOT:
+
+```asm
+                     Precompiled____main_1435:
+000000000009a6ec         push       rbp                                         ; CODE XREF=Precompiled____main_main_1437+17
+000000000009a6ed         mov        rbp, rsp
+000000000009a6f0         cmp        rsp, qword [r14+0x40]
+000000000009a6f4         jbe        loc_9a71a
+
+                     loc_9a6fa:
+000000000009a6fa         mov        r11, qword [r15+0x1e07]                     ; CODE XREF=Precompiled____main_1435+53
+000000000009a701         push       r11
+000000000009a703         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a708         pop        rcx
+000000000009a709         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
+000000000009a70e         mov        rax, qword [r14+0xc8]
+000000000009a715         mov        rsp, rbp
+000000000009a718         pop        rbp
+000000000009a719         ret
+                        ; endp
+
+                     loc_9a71a:
+000000000009a71a         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1435+8
+000000000009a721         jmp        loc_9a6fa
+```
+
+woopsy daisy, can't say I wasn't surprised! it seems like the Dart compiler didn't really understand that the only thing the `foo()` function is doing is to return a constant global value so it's trying to retrieve that value from the object pool anyways. to be honest I was expecting the `0xdeadbeef` value to be put right into a general purpose register at this point and then passed directly to the `r11` register to then be consumed by the `Precompiled____print_911` procedure but that wasn't the case!
+
+digging deper if we change the code to the following:
+
+```dart
+import 'dart:io' show exit;
+
+const FOO = 0xDEADBEEF;
+
+int get foo => FOO;
+
+void main(List<String> args) {
+  print(foo);
+  exit(0);
+}
+```
+
+we will get this AOT:
+
+```asm
+                     Precompiled____main_1435:
+000000000009a700         push       rbp                                         ; CODE XREF=Precompiled____main_main_1436+17
+000000000009a701         mov        rbp, rsp
+000000000009a704         mov        eax, 0xdeadbeef
+000000000009a709         cmp        rsp, qword [r14+0x40]
+000000000009a70d         jbe        loc_9a72b
+
+                     loc_9a713:
+000000000009a713         push       rax                                         ; CODE XREF=Precompiled____main_1435+50
+000000000009a714         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a719         pop        rcx
+000000000009a71a         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
+000000000009a71f         mov        rax, qword [r14+0xc8]
+000000000009a726         mov        rsp, rbp
+000000000009a729         pop        rbp
+000000000009a72a         ret
+                        ; endp
+
+                     loc_9a72b:
+000000000009a72b         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1435+13
+000000000009a732         jmp        loc_9a713
+```
+
+so this is what I want to see from the compiler even with the `foo()` function, rather than it being a getter. in this code I created a `foo` getter that simply returns the constant value of `FOO` but when foo was a function, the Dart compiler couldn't optimize the whole function call out and substitute it with the `FOO` constant!
+
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
+- one liner getters returning a constant value tend to be optimized better by the Dart compiler, vs one-liner functions that return the same constant where the function variant stores its constant value in the object pool which then has to be retrieved by the CPU with more instructions!
 
 ## References
 
