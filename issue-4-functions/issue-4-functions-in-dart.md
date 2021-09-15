@@ -2,6 +2,15 @@
 
 in this issue I want to explore how functions are compiled and are passed their arguments internally in Dart. I'm going to compile the code into x86_64 AOT with `dart compile` and then see the instructions generated for the Dart code.
 
+- [Functions in Dart](#functions-in-dart)
+  - [Global functions without 0 arguments](#global-functions-without-0-arguments)
+  - [Global functions with 1 compile-time constant argument](#global-functions-with-1-compile-time-constant-argument)
+  - [Global functions with 1 non-compile-time-constant argument](#global-functions-with-1-non-compile-time-constant-argument)
+  - [One-liner optimized `static` functions](#one-liner-optimized-static-functions)
+  - [More complex `static` functions](#more-complex-static-functions)
+  - [Conclusions](#conclusions)
+  - [References](#references)
+
 ## Global functions without 0 arguments
 
 given the following Dart code with a loose function with 0 arguments:
