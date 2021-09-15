@@ -698,6 +698,7 @@ this is, not surprisingly, putting `value1` and `value2` into the stack and then
                         ; endp
 ```
 
+here you can see how `rbp` (the 64-bit base pointer) is the pointer to the arguments passed to the stack when this function was called. So our arguments are in the stack with `value1` placed inside `[rbp+arg_8]` and `value2` inside `[rbp+arg_0]`.
 
 ## Conclusions
 
