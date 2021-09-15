@@ -670,6 +670,35 @@ and for this we get the following AOT for the main function, which I have reduce
 ...
 ```
 
+this is, not surprisingly, putting `value1` and `value2` into the stack and then calling the `Precompiled_Foo_increment_1437` procedure so let's have a look at the AOT for that:
+
+```asm
+                     Precompiled_Foo_increment_1437:
+000000000009a974         push       rbp                                         ; CODE XREF=Precompiled____main_1436+78
+000000000009a975         mov        rbp, rsp
+000000000009a978         cmp        rsp, qword [r14+0x40]
+000000000009a97c         jbe        loc_9a9ab
+
+                     loc_9a982:
+000000000009a982         mov        rax, qword [rbp+arg_8]                      ; CODE XREF=Precompiled_Foo_increment_1437+62
+000000000009a986         push       rax
+000000000009a987         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a98c         pop        rcx
+000000000009a98d         mov        rax, qword [rbp+arg_0]
+000000000009a991         push       rax
+000000000009a992         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a997         pop        rcx
+000000000009a998         mov        rcx, qword [rbp+arg_0]
+000000000009a99c         mov        rdx, qword [rbp+arg_8]
+000000000009a9a0         add        rdx, rcx
+000000000009a9a3         mov        rax, rdx
+000000000009a9a6         mov        rsp, rbp
+000000000009a9a9         pop        rbp
+000000000009a9aa         ret
+                        ; endp
+```
+
+
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
