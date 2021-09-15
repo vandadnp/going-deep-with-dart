@@ -229,7 +229,7 @@ I can see that the `r11` 64-bit GPR is getting set to `[r15+0x1e07]`. I was unsu
 
 > R15 is reserved as "object pool" register in Dart calling conventions, it contains a pointer to a pool object through which generated code accesses different constant and auxiliary objects in the isolate group's GC managed heap.
 
-I could trace what Vyacheslav said, to the `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x86.cc` file, as shown here:
+I could trace what Vyacheslav said, to the `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x64.cc` file, as shown here:
 
 ```cpp
 bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
@@ -589,6 +589,50 @@ we get the following AOT:
                      sub_9a969:
 000000000009a969         int3
 ```
+
+the first part of the code is again setting up the stack and checking for stack overflows as I explained before so I won't go into that again. The juicy part is inside the `loc_9a90e` label. that block of code starts with the following AOT:
+
+```asm
+000000000009a90e         push       qword [r14+0xc8]                            ; CODE XREF=Precompiled____main_1436+107
+000000000009a915         call       Precompiled_Random_Random__1165             ; Precompiled_Random_Random__1165
+000000000009a91a         pop        rcx
+```
+
+`r14` 64-bit GPR is being used here to point to the object pool for this thread and I believe internally in the Dart SDK it hits this point in the `instructions_x64.cc` file:
+
+```cpp
+bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
+  ASSERT(code.ContainsInstructionAt(pc));
+
+  uint8_t* bytes = reinterpret_cast<uint8_t*>(pc);
+
+  COMPILE_ASSERT(THR == R14);
+  if ((bytes[0] == 0x49) || (bytes[0] == 0x4d)) {
+    if ((bytes[1] == 0x8b) || (bytes[1] == 0x3b)) {   // movq, cmpq
+      if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]
+        int32_t offset = LoadUnaligned(reinterpret_cast<int32_t*>(pc + 3));
+        return Thread::ObjectAtOffset(offset, obj);
+      }
+      if ((bytes[2] & 0xc7) == (0x40 | (THR & 7))) {  // [r14+disp8]
+        uint8_t offset = *reinterpret_cast<uint8_t*>(pc + 3);
+        return Thread::ObjectAtOffset(offset, obj);
+      }
+    }
+  }
+```
+
+you see the `if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]` code? that's the code responsible for loading the `Random` class into the stack using the `push` instruction and then `Precompiled_Random_Random__1165` call will initialize the Random instance for us. But let's not get side-tracked here, let's just focus on the static `increment()` function here. the AOT for that function is shown here:
+
+```asm
+000000000009a941         mov        rcx, qword [rbp+var_10]
+000000000009a945         add        rcx, rax
+000000000009a948         push       rcx
+000000000009a949         call       Precompiled____print_911                    ; Precompiled____print_911
+```
+
+the `mov` instruction is simply loading the value in `[rbp+var_10]` into `rcx` and just so you know, `[rbp+var_10]` contains the result of `Precompiled__Random_11383281_nextInt_1164`, the first `nextInt()` call, and then Dart is doing `add rcx, rax` because `rax` is holding the result of the second call to the `nextInt()` function so the `add` instruction here is literally what we are doing inside the `increment()` function, brought into the lexical scope of the `main` function. this was quite a nice optimization by the Dart compiler so the static function got inlined in other words.
+
+
 
 ## Conclusions
 
