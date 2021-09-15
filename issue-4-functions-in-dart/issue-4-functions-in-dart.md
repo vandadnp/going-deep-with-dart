@@ -123,7 +123,11 @@ void CheckStackOverflowElimination::EliminateStackOverflow(FlowGraph* graph) {
 
 so what all of this is doing is, with excerpts from Vyacheslav, this is checking the current stack pointer against *a limit* to make sure it's not gone over that, so that a runtime routine can catch such stack overflows and handle that internally! so basically we don't have to worry about that part of the code, is what I'm trying to say 🤠
 
+NOTE: the C++ code is you have found is part of the compiler itself. It's a compiler pass that tries to eliminate redundant stack overflow checks, while ensuring that the code is still interruptible in enough spots. The code which handles stack overflow (or an interrupt which looks like stack overflow) lives in the runtime system - more specifically in `runtime_entry.cc`, look for a function that starts like this: `DEFINE_RUNTIME_ENTRY(StackOverflow, 0)` - that's where execution ends up when stack overflow check fails. 
+
 so until this point, before the `loc_9a63f` label, the 64-bit CPU register `eax` (the lower 32-bits of `rax`) is holding the value we are going to print to the console using the `print` function.
+
+NOTE: `rax` holding the value we are going to print. `mov eax, ...` gets `0xdeadbeef` into `rax` - semantics here is that top 32-bit bits are zeroed on such moves. (This is different from how registers like `al` and `ah` work - where you can update one without changing another).  
 
 then when we do get to `loc_9a63f` label eventually, you can see this:
 
@@ -140,6 +144,8 @@ then when we do get to `loc_9a63f` label eventually, you can see this:
 ```
 
 that is pushing the value of `0xdeadbeef` into the stack as a 32-bit register, which tells me `Precompiled____print_911` is taking in 32-bit pointers only!? I could be wrong about this but this basically pushes the stack pointer down by the length of `eax` which then the `Precompiled____print_911` function can use.
+
+NOTE: we are pushing `rax` not `eax`!
 
 if you call this function multiple times like this:
 
@@ -240,6 +246,8 @@ I can see that the `r11` 64-bit GPR is getting set to `[r15+0x1e07]`. I was unsu
 
 I could trace what Vyacheslav said, to the `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x64.cc` file, as shown here:
 
+NOTE: the function you have found is used in the internal disassembler built into VM for debugging purposes (e.g. you can tell VM to disassemble the code it generates), in which case the disassembler looks for some specific patterns in the code (e.g. loads from the pool) and decodes what objects they will load at runtime - so that it could print a small comment next to these instructions in the disassembly listing to make it more human readable. This code is pattern matching on the stream of x86_64 instructions - hence a lot of magic constants, these are just parts of Intel instruction encoding. I think a more appropriate place to look at is something like `Assembler::LoadObjectHelper` which is a function that _generates_ machine code for loading a reference to a specific object into a specific register. 
+
 ```cpp
 bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
   ASSERT(code.ContainsInstructionAt(pc));
@@ -322,6 +330,8 @@ if (!pool.IsNull() && (index < pool.Length()) &&
 ```
 
 and Dart is getting an object pointer to our value returned from the `foo()` function using `IndexFromPPLoadDisp32` and then getting the pointer to the object pool using `code.GetObjectPool()` and then finally retrieving our object using `pool.ObjectAt(index)`. so this was interesting! even though the `foo()` function is returning a constant value (in our eyes a constant), the compiler is not understanding that and cannot promote the `0xdeadbeef` value to a constant. let's change that:
+
+NOTE: you are not actually calling `foo` in these samples because you have written `print(foo)` intead of `print(foo())`: you pass `foo` tear-off to `print` would would print something like `Closure: () => int from Function: 'foo' static`. The tear-off itself is a constant value which is loaded from the pool.   
 
 ```dart
 import 'dart:io' show exit;
@@ -406,6 +416,8 @@ we will get this AOT:
 ```
 
 so this is what I want to see from the compiler even with the `foo()` function, rather than it being a getter. in this code I created a `foo` getter that simply returns the constant value of `FOO` but when foo was a function, the Dart compiler couldn't optimize the whole function call out and substitute it with the `FOO` constant!
+
+NOTE: here you actually call `get foo` unlike in the previous code examples.
 
 ## Global functions with 1 compile-time constant argument
 
@@ -503,12 +515,16 @@ the `number` variable is being set to the first number passed to our program as 
 
 let's break it down one bit at a time, it seems like the `cmp` and `jne` instruction (jump short if equal `ZF=0`, refer to EFLAGS in Intel instructions handbook) is checking the result of `Precompiled_int_tryParse_559` with `null` and if `ZF==0` (the result of `Precompiled_int_tryParse_559` was `null`), then it jumps to `loc_9f8f0`. but if the result was `null`, or in other words `ZF=0`, then it goes to this code:
 
+NOTE: `jne` is jump if **not** equal.
+
 ```asm
 000000000009f8e9         xor        eax, eax
 000000000009f8eb         jmp        loc_9f8fd
 ```
 
 which is a pretty clever way of saying that `eax` is 0 at this point. I don't know if this is an optimization on the Dart compiler's side, but it seems like Dart is setting `eax` to 0 using `xor` on x86_64 instead of saying `mov eax, 0`, and I remember from many years ago where I programmed in Assembly that indeed `xor` could be faster than `mov gpr, const` so it could very well be an optimization.
+
+NOTE: the same remark about `rax` and `eax` applies here, doing `xor eax, eax` zeroes the whole register. 
 
 Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9f8fd` which is this code:
 
@@ -522,6 +538,8 @@ Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9
 ```
 
 I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times. Maybe this is a bug, what do I know! or maybe it's just such a difficult task to do on the compiler side to fix this that the Dart team doesn't think it's worth doing. I don't know! Do you?
+
+NOTE: Yeah, this is a missing optimization opportunity here. Dart's compiler misses it because we don't do so called _reassociation_ (turning `((x + a) + b)` into `x + (a + b)`).
 
 ## One-liner optimized `static` functions
 
@@ -608,6 +626,8 @@ the first part of the code is again setting up the stack and checking for stack 
 ```
 
 `r14` 64-bit GPR is being used here to point to the object pool for this thread and I believe internally in the Dart SDK it hits this point in the `instructions_x64.cc` file:
+
+NOTE: The same remark as before. This particular function is just a helper used by disassembler and has nothing to do with how the code is generated or pool is populated or how the code is going to be executed later. 
 
 ```cpp
 bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
