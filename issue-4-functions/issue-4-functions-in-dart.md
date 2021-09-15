@@ -176,6 +176,61 @@ the output AOT would be:
 
 you can see the compiler is literally calling that function 3 times in a row. I know for sure that the Dart compiler *can* in fact optimize simple functions so that instead of a function call being done here it would do it inline, or even at compile-time if the function works with constant values for instance, but in this case, the compiler has decided that the `foo` function is not optimizable such that it can be done inline. I'm not so sure about the internals at the Dart SDK level how optimizations are done to global functions like this but I am almost sure there is a reason behind this!
 
+I think it's important to have a look at other global functions with 0 arguments of a different sort just to get a better understand of how Dart optimizations work under the hood because the above example is not a good representation of capabilities of the Dart compiler, I feel like!
+
+given the following Dart code:
+
+```dart
+import 'dart:io' show exit;
+
+int foo() => 0xDEADBEEF;
+
+void main(List<String> args) {
+  print(foo);
+  exit(0);
+}
+```
+
+we get the following AOT:
+
+```asm
+                     Precompiled____main_1435:
+000000000009a6ec         push       rbp                                         ; CODE XREF=Precompiled____main_main_1437+17
+000000000009a6ed         mov        rbp, rsp
+000000000009a6f0         cmp        rsp, qword [r14+0x40]
+000000000009a6f4         jbe        loc_9a71a
+
+                     loc_9a6fa:
+000000000009a6fa         mov        r11, qword [r15+0x1e07]                     ; CODE XREF=Precompiled____main_1435+53
+000000000009a701         push       r11
+000000000009a703         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a708         pop        rcx
+000000000009a709         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
+000000000009a70e         mov        rax, qword [r14+0xc8]
+000000000009a715         mov        rsp, rbp
+000000000009a718         pop        rbp
+000000000009a719         ret
+                        ; endp
+
+                     loc_9a71a:
+000000000009a71a         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1435+8
+000000000009a721         jmp        loc_9a6fa
+```
+
+well this was interesting! there is no mention of the `foo` function anywhere in this code. the interesting part of the code for me is this:
+
+```asm
+000000000009a6fa         mov        r11, qword [r15+0x1e07]                     ; CODE XREF=Precompiled____main_1435+53
+000000000009a701         push       r11
+000000000009a703         call       Precompiled____print_911                    ; Precompiled____print_911
+```
+
+I can see that the `r11` 64-bit GPR is getting set to `[r15+0x1e07]`. I was unsure at first about what `r15` actually is here so again, I asked Vyacheslav Egorov and in his words:
+
+> R15 is reserved as "object pool" register in Dart calling conventions, it contains a pointer to a pool object through which generated code accesses different constant and auxiliary objects in the isolate group's GC managed heap.
+
+
+
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
