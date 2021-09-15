@@ -490,6 +490,28 @@ the `number` variable is being set to the first number passed to our program as 
 000000000009f90a         call       Precompiled____print_845                    ; Precompiled____print_845
 ```
 
+let's break it down one bit at a time, it seems like the `cmp` and `jne` instruction (jump short if equal `ZF=0`, refer to EFLAGS in Intel instructions handbook) is checking the result of `Precompiled_int_tryParse_559` with `null` and if `ZF==0` (the result of `Precompiled_int_tryParse_559` was `null`), then it jumps to `loc_9f8f0`. but if the result was `null`, or in other words `ZF=0`, then it goes to this code:
+
+```asm
+000000000009f8e9         xor        eax, eax
+000000000009f8eb         jmp        loc_9f8fd
+```
+
+which is a pretty clever way of saying that `eax` is 0 at this point. I don't know if this is an optimization on the Dart compiler's side, but it seems like Dart is setting `eax` to 0 using `xor` on x86_64 instead of saying `mov eax, 0`, and I remember from many years ago where I programmed in Assembly that indeed `xor` could be faster than `mov gpr, const` so it could very well be an optimization.
+
+Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9f8fd` which is this code:
+
+```asm
+                     loc_9f8fd:
+000000000009f8fd         add        rax, 0x1                                    ; CODE XREF=Precompiled____main_1440+119, Precompiled____main_1440+127
+000000000009f901         add        rax, 0x1
+000000000009f905         add        rax, 0x1
+000000000009f909         push       rax
+000000000009f90a         call       Precompiled____print_845                    ; Precompiled____print_845
+```
+
+I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times. Maybe this is a bug, what do I know! or maybe it's just such a difficult task to do on the compiler side to fix this that the Dart team doesn't think it's worth doing. I don't know! Do you?
+
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
