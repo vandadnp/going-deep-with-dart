@@ -514,7 +514,7 @@ Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9
 
 I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times. Maybe this is a bug, what do I know! or maybe it's just such a difficult task to do on the compiler side to fix this that the Dart team doesn't think it's worth doing. I don't know! Do you?
 
-## `static` functions
+## One-liner optimized `static` functions
 
 given the following Dart code:
 
@@ -632,13 +632,50 @@ you see the `if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]` co
 
 the `mov` instruction is simply loading the value in `[rbp+var_10]` into `rcx` and just so you know, `[rbp+var_10]` contains the result of `Precompiled__Random_11383281_nextInt_1164`, the first `nextInt()` call, and then Dart is doing `add rcx, rax` because `rax` is holding the result of the second call to the `nextInt()` function so the `add` instruction here is literally what we are doing inside the `increment()` function, brought into the lexical scope of the `main` function. this was quite a nice optimization by the Dart compiler so the static function got inlined in other words.
 
+## More complex `static` functions
 
+let's make the previous example a bit more complex for the compiler:
+
+```dart
+import 'dart:io' show exit;
+import 'dart:math' show Random;
+
+class Foo {
+  static int increment(int value1, int value2) {
+    print(value1);
+    print(value2);
+    return value1 + value2;
+  }
+}
+
+void main(List<String> args) {
+  final rnd = Random();
+  final value1 = rnd.nextInt(0xDEADBEEF);
+  final value2 = rnd.nextInt(0xCAFEBABE);
+  final result = Foo.increment(value1, value2);
+  print(result);
+  exit(0);
+}
+```
+
+and for this we get the following AOT for the main function, which I have reduced literally just to a few lines of asm code, since otherwise it's going to be repetitive:
+
+```asm
+...
+000000000009a948         push       rax
+000000000009a949         push       rcx
+000000000009a94a         call       Precompiled_Foo_increment_1437              ; Precompiled_Foo_increment_1437
+000000000009a94f         pop        rcx
+000000000009a950         pop        rcx
+...
+```
 
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
 - one liner getters returning a constant value tend to be optimized better by the Dart compiler, vs one-liner functions that return the same constant where the function variant stores its constant value in the object pool which then has to be retrieved by the CPU with more instructions!
 - parameters passed to functions that cannot be optimized at compile-time to be inlined, are passed into the stack, using Dart's custom calling convention. I haven't been able to find a single place in the Dart SDK source code where the calling convention is documented!
+- one-liner static functions, depending on their complexity, can, just like any other global function, be optimized as an inline function.
 
 ## References
 
