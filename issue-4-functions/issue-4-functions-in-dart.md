@@ -285,6 +285,20 @@ bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
 }
 ```
 
+the part which I think we need to look at is everything after this point:
+
+```cpp
+COMPILE_ASSERT(PP == R15);
+...
+```
+
+what's interesting to me is this comment `[r15+disp32]` which tells me that the value that is added to the location of `r15` (object pool) is the effective displacement address of where the object resides in memory. looking at this `intptr_t index = IndexFromPPLoadDisp32(pc + 3);` i can see that the compiler is moving 3 bytes over `pc` which is set initially as the value of `bytes`, since the first 3 bytes inside the `bytes`/`pc` values are some magic numbers that only the compiler understands! I can't pretend like I know what this code is actually doing even though the team has left some comments on it, do you? 🤷🏻‍♂️
+
+```cpp
+if ((bytes[0] == 0x49) || (bytes[0] == 0x4d)) {
+    if ((bytes[1] == 0x8b) || (bytes[1] == 0x3b)) {  // movq, cmpq
+        if ((bytes[2] & 0xc7) == (0x80 | (PP & 7))) {  // [r15+disp32]
+```
 
 ## Conclusions
 
