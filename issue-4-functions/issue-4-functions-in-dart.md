@@ -229,6 +229,61 @@ I can see that the `r11` 64-bit GPR is getting set to `[r15+0x1e07]`. I was unsu
 
 > R15 is reserved as "object pool" register in Dart calling conventions, it contains a pointer to a pool object through which generated code accesses different constant and auxiliary objects in the isolate group's GC managed heap.
 
+I could trace what Vyacheslav said, to the `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x86.cc` file, as shown here:
+
+```cpp
+bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
+  ASSERT(code.ContainsInstructionAt(pc));
+
+  uint8_t* bytes = reinterpret_cast<uint8_t*>(pc);
+
+  COMPILE_ASSERT(THR == R14);
+  if ((bytes[0] == 0x49) || (bytes[0] == 0x4d)) {
+    if ((bytes[1] == 0x8b) || (bytes[1] == 0x3b)) {   // movq, cmpq
+      if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]
+        int32_t offset = LoadUnaligned(reinterpret_cast<int32_t*>(pc + 3));
+        return Thread::ObjectAtOffset(offset, obj);
+      }
+      if ((bytes[2] & 0xc7) == (0x40 | (THR & 7))) {  // [r14+disp8]
+        uint8_t offset = *reinterpret_cast<uint8_t*>(pc + 3);
+        return Thread::ObjectAtOffset(offset, obj);
+      }
+    }
+  }
+
+  if (((bytes[0] == 0x41) && (bytes[1] == 0xff) && (bytes[2] == 0x76))) {
+    // push [r14+disp8]
+    uint8_t offset = *reinterpret_cast<uint8_t*>(pc + 3);
+    return Thread::ObjectAtOffset(offset, obj);
+  }
+
+  COMPILE_ASSERT(PP == R15);
+  if ((bytes[0] == 0x49) || (bytes[0] == 0x4d)) {
+    if ((bytes[1] == 0x8b) || (bytes[1] == 0x3b)) {  // movq, cmpq
+      if ((bytes[2] & 0xc7) == (0x80 | (PP & 7))) {  // [r15+disp32]
+        intptr_t index = IndexFromPPLoadDisp32(pc + 3);
+        const ObjectPool& pool = ObjectPool::Handle(code.GetObjectPool());
+        if (!pool.IsNull() && (index < pool.Length()) &&
+            (pool.TypeAt(index) == ObjectPool::EntryType::kTaggedObject)) {
+          *obj = pool.ObjectAt(index);
+          return true;
+        }
+      }
+      if ((bytes[2] & 0xc7) == (0x40 | (PP & 7))) {  // [r15+disp8]
+        intptr_t index = IndexFromPPLoadDisp8(pc + 3);
+        const ObjectPool& pool = ObjectPool::Handle(code.GetObjectPool());
+        if (!pool.IsNull() && (index < pool.Length()) &&
+            (pool.TypeAt(index) == ObjectPool::EntryType::kTaggedObject)) {
+          *obj = pool.ObjectAt(index);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+```
 
 
 ## Conclusions
