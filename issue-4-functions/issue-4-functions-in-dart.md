@@ -398,13 +398,53 @@ we will get this AOT:
 
 so this is what I want to see from the compiler even with the `foo()` function, rather than it being a getter. in this code I created a `foo` getter that simply returns the constant value of `FOO` but when foo was a function, the Dart compiler couldn't optimize the whole function call out and substitute it with the `FOO` constant!
 
-## Global functions with 1 or more arguments
+## Global functions with 1 compile-time constant argument
 
 given the following Dart code:
 
 ```dart
+import 'dart:io' show exit;
 
+int increment(int value) {
+  return value + 1;
+}
+
+void main(List<String> args) {
+  print(increment(increment(increment(1))));
+  exit(0);
+}
 ```
+
+we will get this AOT:
+
+```asm
+000000000009a700         push       rbp                                         ; CODE XREF=Precompiled____main_main_1436+17
+000000000009a701         mov        rbp, rsp
+000000000009a704         mov        eax, 0x4
+000000000009a709         cmp        rsp, qword [r14+0x40]
+000000000009a70d         jbe        loc_9a72b
+
+                     loc_9a713:
+000000000009a713         push       rax                                         ; CODE XREF=Precompiled____main_1435+50
+000000000009a714         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a719         pop        rcx
+000000000009a71a         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
+000000000009a71f         mov        rax, qword [r14+0xc8]
+000000000009a726         mov        rsp, rbp
+000000000009a729         pop        rbp
+000000000009a72a         ret
+                        ; endp
+
+                     loc_9a72b:
+000000000009a72b         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1435+13
+000000000009a732         jmp        loc_9a713
+```
+
+you see that little `mov eax, 0x4` instruction up there? well that's the result to be printed to the screen using `Precompiled____print_911`. The Dart compiler just took the value of 0x01 that we passed to the inner function, calculated that the function just adds 1 to 0x01 so it becomes 0x02, and passed 0x02 to the function again to see it becomes 0x03 and finally 0x04 on the last pass; so it didn't even compile the `increment()` function and I can see inside the symbols i the resulting AOT that the `increment()` function is indeed not present at all in the binary.
+
+let's make it a bit harded for the compiler to optimize this function so let's take this as an example:
+
+
 
 ## Conclusions
 
