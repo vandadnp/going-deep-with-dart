@@ -540,7 +540,55 @@ void main(List<String> args) {
 
 we get the following AOT:
 
+```asm
+                     Precompiled____main_1436:
+000000000009a8fc         push       rbp                                         ; CODE XREF=Precompiled____main_main_1437+17
+000000000009a8fd         mov        rbp, rsp
+000000000009a900         sub        rsp, 0x10
+000000000009a904         cmp        rsp, qword [r14+0x40]
+000000000009a908         jbe        loc_9a960
 
+                     loc_9a90e:
+000000000009a90e         push       qword [r14+0xc8]                            ; CODE XREF=Precompiled____main_1436+107
+000000000009a915         call       Precompiled_Random_Random__1165             ; Precompiled_Random_Random__1165
+000000000009a91a         pop        rcx
+000000000009a91b         mov        qword [rbp+var_8], rax
+000000000009a91f         push       rax
+000000000009a920         mov        ecx, 0xdeadbeef
+000000000009a925         push       rcx
+000000000009a926         call       Precompiled__Random_11383281_nextInt_1164   ; Precompiled__Random_11383281_nextInt_1164
+000000000009a92b         pop        rcx
+000000000009a92c         pop        rcx
+000000000009a92d         mov        qword [rbp+var_10], rax
+000000000009a931         push       qword [rbp+var_8]
+000000000009a934         mov        ecx, 0xcafebabe
+000000000009a939         push       rcx
+000000000009a93a         call       Precompiled__Random_11383281_nextInt_1164   ; Precompiled__Random_11383281_nextInt_1164
+000000000009a93f         pop        rcx
+000000000009a940         pop        rcx
+000000000009a941         mov        rcx, qword [rbp+var_10]
+000000000009a945         add        rcx, rax
+000000000009a948         push       rcx
+000000000009a949         call       Precompiled____print_911                    ; Precompiled____print_911
+000000000009a94e         pop        rcx
+000000000009a94f         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
+000000000009a954         mov        rax, qword [r14+0xc8]
+000000000009a95b         mov        rsp, rbp
+000000000009a95e         pop        rbp
+000000000009a95f         ret
+                        ; endp
+
+                     loc_9a960:
+000000000009a960         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1436+12
+000000000009a967         jmp        loc_9a90e
+
+
+        ; ================ B E G I N N I N G   O F   P R O C E D U R E ================
+
+
+                     sub_9a969:
+000000000009a969         int3
+```
 
 ## Conclusions
 
