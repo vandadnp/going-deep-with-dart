@@ -464,10 +464,30 @@ void main(List<String> args) {
 }
 ```
 
-the `number` variable is being set to the first number passed to our program as an argument. this is just a way for me to make sure the Dart compiler cannot guess the value inside `number`, but it has no choice to compile that as a variable to be calculated at runtime and then passed to the `increment` function, let's check out the AOT for the main function now:
+the `number` variable is being set to the first number passed to our program as an argument. this is just a way for me to make sure the Dart compiler cannot guess the value inside `number`, but it has no choice to compile that as a variable to be calculated at runtime and then passed to the `increment` function, let's check out the AOT for the main function now (note that I'm not going to paste the entire main function's AOT since it includes a **lot** of code for the `tryParse()` function and I don't see that as relevant to the point of this article so let's just look at the relevant part)
 
 ```asm
+000000000009f8d5         push       rax
+000000000009f8d6         call       Precompiled_int_tryParse_559                ; Precompiled_int_tryParse_559
+000000000009f8db         pop        rcx
+000000000009f8dc         cmp        rax, qword [r14+0xc8]
+000000000009f8e3         jne        loc_9f8f0
 
+000000000009f8e9         xor        eax, eax
+000000000009f8eb         jmp        loc_9f8fd
+
+                     loc_9f8f0:
+000000000009f8f0         sar        rax, 0x1                                    ; CODE XREF=Precompiled____main_1440+111
+000000000009f8f3         jae        loc_9f8fd
+
+000000000009f8f5         mov        rax, qword [0x8+rax*2]
+
+                     loc_9f8fd:
+000000000009f8fd         add        rax, 0x1                                    ; CODE XREF=Precompiled____main_1440+119, Precompiled____main_1440+127
+000000000009f901         add        rax, 0x1
+000000000009f905         add        rax, 0x1
+000000000009f909         push       rax
+000000000009f90a         call       Precompiled____print_845                    ; Precompiled____print_845
 ```
 
 ## Conclusions
