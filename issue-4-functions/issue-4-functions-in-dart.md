@@ -444,7 +444,31 @@ you see that little `mov eax, 0x4` instruction up there? well that's the result 
 
 let's make it a bit harded for the compiler to optimize this function so let's take this as an example:
 
+```dart
+import 'dart:io' show exit;
 
+int increment(int value) {
+  return value + 1;
+}
+
+void main(List<String> args) {
+  final number = int.tryParse(
+        args.firstWhere(
+          (_) => true,
+          orElse: () => '',
+        ),
+      ) ??
+      0;
+  print(increment(increment(increment(number))));
+  exit(0);
+}
+```
+
+the `number` variable is being set to the first number passed to our program as an argument. this is just a way for me to make sure the Dart compiler cannot guess the value inside `number`, but it has no choice to compile that as a variable to be calculated at runtime and then passed to the `increment` function, let's check out the AOT for the main function now:
+
+```asm
+
+```
 
 ## Conclusions
 
