@@ -518,6 +518,7 @@ I would be lying if I said I didn't chuckle but this doesn't seem like the best 
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
 - one liner getters returning a constant value tend to be optimized better by the Dart compiler, vs one-liner functions that return the same constant where the function variant stores its constant value in the object pool which then has to be retrieved by the CPU with more instructions!
+- parameters passed to functions that cannot be optimized at compile-time to be inlined, are passed into the stack, using Dart's custom calling convention. I haven't been able to find a single place in the Dart SDK source code where the calling convention is documented!
 
 ## References
 
