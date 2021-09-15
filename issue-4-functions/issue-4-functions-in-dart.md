@@ -442,6 +442,8 @@ we will get this AOT:
 
 you see that little `mov eax, 0x4` instruction up there? well that's the result to be printed to the screen using `Precompiled____print_911`. The Dart compiler just took the value of 0x01 that we passed to the inner function, calculated that the function just adds 1 to 0x01 so it becomes 0x02, and passed 0x02 to the function again to see it becomes 0x03 and finally 0x04 on the last pass; so it didn't even compile the `increment()` function and I can see inside the symbols i the resulting AOT that the `increment()` function is indeed not present at all in the binary.
 
+## Global functions with 1 **non**-compile-time-constant argument
+
 let's make it a bit harded for the compiler to optimize this function so let's take this as an example:
 
 ```dart
