@@ -698,7 +698,27 @@ this is, not surprisingly, putting `value1` and `value2` into the stack and then
                         ; endp
 ```
 
-here you can see how `rbp` (the 64-bit base pointer) is the pointer to the arguments passed to the stack when this function was called. So our arguments are in the stack with `value1` placed inside `[rbp+arg_8]` and `value2` inside `[rbp+arg_0]`.
+here you can see how `rbp` (the 64-bit base pointer) is the pointer to the arguments passed to the stack when this function was called. So our arguments are in the stack with `value1` placed inside `[rbp+arg_8]` and `value2` inside `[rbp+arg_0]`. since we made the `increment()` function more complicated with `print()` invocations inside, the Dart compiler couldn't optimize it so that it could be inlined! that's not a surprise though, almost nothing about this part of the AOT is a surprise to be honest. It's a simple function with simple arguments stored in the stack which internally makes calls to the `Precompiled____print_911` function and then uses these instructions to calculate `return value1 + value2;`:
+
+```asm
+000000000009a998         mov        rcx, qword [rbp+arg_0]
+000000000009a99c         mov        rdx, qword [rbp+arg_8]
+000000000009a9a0         add        rdx, rcx
+000000000009a9a3         mov        rax, rdx
+```
+
+so after this procedure is done, the `rax` 64-bit register will contain the result of `value1 + value2` and the caller will be able to read that as shown here:
+
+```asm
+000000000009a94a         call       Precompiled_Foo_increment_1437              ; Precompiled_Foo_increment_1437
+000000000009a94f         pop        rcx
+000000000009a950         pop        rcx
+000000000009a951         push       rax
+000000000009a952         call       Precompiled____print_911                    ; Precompiled____print_911
+```
+
+so there you have it!
+
 
 ## Conclusions
 
@@ -706,6 +726,7 @@ here you can see how `rbp` (the 64-bit base pointer) is the pointer to the argum
 - one liner getters returning a constant value tend to be optimized better by the Dart compiler, vs one-liner functions that return the same constant where the function variant stores its constant value in the object pool which then has to be retrieved by the CPU with more instructions!
 - parameters passed to functions that cannot be optimized at compile-time to be inlined, are passed into the stack, using Dart's custom calling convention. I haven't been able to find a single place in the Dart SDK source code where the calling convention is documented!
 - one-liner static functions, depending on their complexity, can, just like any other global function, be optimized as an inline function.
+- depending on the complexity of a function, regardless of whether it is a static function or not, the Dart compiler might make the decision to make that function inline and just because a function seems complicated, it doesn't necessarily mean it won't be optimized and vice versa!
 
 ## References
 
