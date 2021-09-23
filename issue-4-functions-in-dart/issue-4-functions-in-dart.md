@@ -126,9 +126,11 @@ DEFINE_RUNTIME_ENTRY(StackOverflow, 0) {
 
 so what all of this is doing is, with excerpts from Vyacheslav, this is checking the current stack pointer against *a limit* to make sure it's not gone over that, so that a runtime routine can catch such stack overflows and handle that internally! so basically we don't have to worry about that part of the code, is what I'm trying to say 🤠
 
-so until this point, before the `loc_9a63f` label, the 32-bit CPU register `eax` (the lower 32-bits of `rax`) is holding the value we are going to print to the console using the `print` function. It's good to know, for me as well, that while operating in a 64-bit environment, a `mov` instruction onto a 32-bit register zeroes out the upper 32 bits of its 64-bit register, so that `mov eax, foo` will zero out the upper 32-bits of `rax`, `mov ebx, foo` will zero out the upper 32-bits of `rbx` and etc. I tried to find information about this in *Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z with no luck*. If you have a reference to this, I would love to have a tip please so we can add it to the bottom of this issue.
+so until this point, before the `loc_9a63f` label, the 32-bit CPU register `eax` (the lower 32-bits of `rax`) is holding the value we are going to print to the console using the `print` function. It's good to know, for me as well, that while operating in a 64-bit environment, a `mov` instruction onto a 32-bit register zeroes out the upper 32 bits of its 64-bit register, so that `mov eax, foo` will zero out the upper 32-bits of `rax`, `mov ebx, foo` will zero out the upper 32-bits of `rbx` and etc. The relevant information to this can be found in section *3.4.1.1 General-Purpose Registers in 64-Bit Mode* in "Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture", as pointed out by Vyacheslav, and it goes like:
 
-then when we do get to `loc_9a63f` label eventually, you can see this:
+> - 64-bit operands generate a 64-bit result in the destination general-purpose register.
+> - **32-bit operands generate a 32-bit result, zero-extended to a 64-bit result in the destination general-purpose register.**
+> - 8-bit and 16-bit operands generate an 8-bit or 16-bit result. The upper 56 bits or 48 bits (respectively) of the destination general-purpose register are not modified by the operation. If the result of an 8-bit or 16-bit operation is intended for 64-bit address calculation, explicitly sign-extend the register to the full 64-bits.
 
 ```asm
                      loc_9a63f:
