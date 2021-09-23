@@ -205,7 +205,9 @@ void main(List<String> args) {
 }
 ```
 
-Note: we are not actually invoking the foo function, rather printing its descriptor!
+Note: we are not actually invoking the foo function, rather printing its so called tear-off, and in Vyacheslav's words:
+
+> we print foo's tear-off - which is just a closure forwarding invocations to foo
 
 we get the following AOT:
 
