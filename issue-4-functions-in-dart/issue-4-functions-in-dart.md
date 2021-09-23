@@ -68,62 +68,65 @@ minus the `mov eax 0xdeadbeef`, that's just the value to printed later, but the 
 
 > it's called StackOverflowCheck - it serves two main purposes: 1) checking for stack overflow 2) checking for internal interrupts scheduled by VM (e.g. might be used by GC to pause the execution on a safepoint).
 
-so I cloned the Dart SDK repo on GitHub and found this:
+Thanks to Vyacheslav, I now know that the overflow check is done inside a file called `runtime_entry.cc` in the Dart SDK repo, where you will see this beauty:
 
 ```cpp
-COMPILER_PASS(EliminateStackOverflowChecks, {
-  if (!flow_graph->IsCompiledForOsr()) {
-    CheckStackOverflowElimination::EliminateStackOverflow(flow_graph);
+DEFINE_RUNTIME_ENTRY(StackOverflow, 0) {
+#if defined(USING_SIMULATOR)
+  uword stack_pos = Simulator::Current()->get_sp();
+  // If simulator was never called it may return 0 as a value of SPREG.
+  if (stack_pos == 0) {
+    // Use any reasonable value which would not be treated
+    // as stack overflow.
+    stack_pos = thread->saved_stack_limit();
   }
-});
-```
+#else
+  uword stack_pos = OSThread::GetCurrentStackPointer();
+#endif
+  // Always clear the stack overflow flags.  They are meant for this
+  // particular stack overflow runtime call and are not meant to
+  // persist.
+  uword stack_overflow_flags = thread->GetAndClearStackOverflowFlags();
 
-in the `compiler_pass.cc` file. you can dig deeper into the `EliminateStackOverflow` function to see this:
-
-```cpp
-void CheckStackOverflowElimination::EliminateStackOverflow(FlowGraph* graph) {
-  const bool should_remove_all = IsMarkedWithNoInterrupts(graph->function());
-
-  CheckStackOverflowInstr* first_stack_overflow_instr = NULL;
-  for (BlockIterator block_it = graph->reverse_postorder_iterator();
-       !block_it.Done(); block_it.Advance()) {
-    BlockEntryInstr* entry = block_it.Current();
-
-    for (ForwardInstructionIterator it(entry); !it.Done(); it.Advance()) {
-      Instruction* current = it.Current();
-
-      if (CheckStackOverflowInstr* instr = current->AsCheckStackOverflow()) {
-        if (should_remove_all) {
-          it.RemoveCurrentFromGraph();
-          continue;
-        }
-
-        if (first_stack_overflow_instr == NULL) {
-          first_stack_overflow_instr = instr;
-          ASSERT(!first_stack_overflow_instr->in_loop());
-        }
-        continue;
-      }
-
-      if (current->IsBranch()) {
-        current = current->AsBranch()->comparison();
-      }
-
-      if (current->HasUnknownSideEffects()) {
-        return;
+  // If an interrupt happens at the same time as a stack overflow, we
+  // process the stack overflow now and leave the interrupt for next
+  // time.
+  if (!thread->os_thread()->HasStackHeadroom() ||
+      IsCalleeFrameOf(thread->saved_stack_limit(), stack_pos)) {
+    if (FLAG_verbose_stack_overflow) {
+      OS::PrintErr("Stack overflow\n");
+      OS::PrintErr("  Native SP = %" Px ", stack limit = %" Px "\n", stack_pos,
+                   thread->saved_stack_limit());
+      OS::PrintErr("Call stack:\n");
+      OS::PrintErr("size | frame\n");
+      StackFrameIterator frames(ValidationPolicy::kDontValidateFrames, thread,
+                                StackFrameIterator::kNoCrossThreadIteration);
+      uword fp = stack_pos;
+      StackFrame* frame = frames.NextFrame();
+      while (frame != NULL) {
+        uword delta = (frame->fp() - fp);
+        fp = frame->fp();
+        OS::PrintErr("%4" Pd " %s\n", delta, frame->ToCString());
+        frame = frames.NextFrame();
       }
     }
+
+    // Use the preallocated stack overflow exception to avoid calling
+    // into dart code.
+    const Instance& exception =
+        Instance::Handle(isolate->group()->object_store()->stack_overflow());
+    Exceptions::Throw(thread, exception);
+    UNREACHABLE();
   }
 
-  if (first_stack_overflow_instr != NULL) {
-    first_stack_overflow_instr->RemoveFromGraph();
-  }
-}
+#if !defined(PRODUCT) && !defined(DART_PRECOMPILED_RUNTIME)
+  HandleStackOverflowTestCases(thread);
+#endif  // !defined(PRODUCT) && !defined(DART_PRECOMPILED_RUNTIME)
 ```
 
 so what all of this is doing is, with excerpts from Vyacheslav, this is checking the current stack pointer against *a limit* to make sure it's not gone over that, so that a runtime routine can catch such stack overflows and handle that internally! so basically we don't have to worry about that part of the code, is what I'm trying to say 🤠
 
-so until this point, before the `loc_9a63f` label, the 64-bit CPU register `eax` (the lower 32-bits of `rax`) is holding the value we are going to print to the console using the `print` function.
+so until this point, before the `loc_9a63f` label, the 32-bit CPU register `eax` (the lower 32-bits of `rax`) is holding the value we are going to print to the console using the `print` function. It's good to know, for me as well, that while operating in a 64-bit environment, a `mov` instruction onto a 32-bit register zeroes out the upper 32 bits of its 64-bit register, so that `mov eax, foo` will zero out the upper 32-bits of `rax`, `mov ebx, foo` will zero out the upper 32-bits of `rbx` and etc. I tried to find information about this in *Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z with no luck*. If you have a reference to this, I would love to have a tip please so we can add it to the bottom of this issue.
 
 then when we do get to `loc_9a63f` label eventually, you can see this:
 
@@ -139,7 +142,7 @@ then when we do get to `loc_9a63f` label eventually, you can see this:
                         ; endp
 ```
 
-that is pushing the value of `0xdeadbeef` into the stack as a 32-bit register, which tells me `Precompiled____print_911` is taking in 32-bit pointers only!? I could be wrong about this but this basically pushes the stack pointer down by the length of `eax` which then the `Precompiled____print_911` function can use.
+that is pushing the value of `0x00000000deadbeef` into the stack as a 64-bit register, for use by the `Precompiled____print_911` procedure.
 
 if you call this function multiple times like this:
 
@@ -200,6 +203,8 @@ void main(List<String> args) {
 }
 ```
 
+Note: we are not actually invoking the foo function, rather printing its descriptor!
+
 we get the following AOT:
 
 ```asm
@@ -238,7 +243,11 @@ I can see that the `r11` 64-bit GPR is getting set to `[r15+0x1e07]`. I was unsu
 
 > R15 is reserved as "object pool" register in Dart calling conventions, it contains a pointer to a pool object through which generated code accesses different constant and auxiliary objects in the isolate group's GC managed heap.
 
-I could trace what Vyacheslav said, to the `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x64.cc` file, as shown here:
+In the original Issue 4, I made a mistake of tracing all of this back to the `DecodeLoadObjectFromPoolOrThread` function in the Dart SDK's source code but here is what Vyacheslav had to say about that:
+
+> the function you have found is used in the internal disassembler built into VM for debugging purposes (e.g. you can tell VM to disassemble the code it generates), in which case the disassembler looks for some specific patterns in the code (e.g. loads from the pool) and decodes what objects they will load at runtime - so that it could print a small comment next to these instructions in the disassembly listing to make it more human readable. This code is pattern matching on the stream of x86_64 instructions - hence a lot of magic constants, these are just parts of Intel instruction encoding. I think a more appropriate place to look at is something like `Assembler::LoadObjectHelper` which is a function that _generates_ machine code for loading a reference to a specific object into a specific register.
+
+I decided to leave this comment exactly as it is since it contains a lot of useful information for me as well. I won't paste the internals of the `Assembler::LoadObjectHelper` function here since it will diverge from the goal of this issue, but I will keep digging into the `DecodeLoadObjectFromPoolOrThread` function since it seems like this function is doing pretty much what I want to do, which is reverse engineer the actual source code! So here is the code block which I find helpful in understanding what the original code was doing! Teh `DecodeLoadObjectFromPoolOrThread` function in Dart SDK's source code, under the `instructions_x64.cc` file:
 
 ```cpp
 bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
@@ -321,57 +330,14 @@ if (!pool.IsNull() && (index < pool.Length()) &&
 }
 ```
 
-and Dart is getting an object pointer to our value returned from the `foo()` function using `IndexFromPPLoadDisp32` and then getting the pointer to the object pool using `code.GetObjectPool()` and then finally retrieving our object using `pool.ObjectAt(index)`. so this was interesting! even though the `foo()` function is returning a constant value (in our eyes a constant), the compiler is not understanding that and cannot promote the `0xdeadbeef` value to a constant. let's change that:
+and Dart is getting an object pointer to `foo` function using `IndexFromPPLoadDisp32` and then getting the pointer to the object pool using `code.GetObjectPool()` and then finally retrieving our object using `pool.ObjectAt(index)`.
+
+Now if we change the code so that we either print the return value of `foo` by writing `print(foo())` or simply changing `foo` to be a getter like so:
 
 ```dart
 import 'dart:io' show exit;
 
-const FOO = 0xDEADBEEF;
-
-int foo() => FOO;
-
-void main(List<String> args) {
-  print(foo);
-  exit(0);
-}
-```
-
-for this code we get the following AOT:
-
-```asm
-                     Precompiled____main_1435:
-000000000009a6ec         push       rbp                                         ; CODE XREF=Precompiled____main_main_1437+17
-000000000009a6ed         mov        rbp, rsp
-000000000009a6f0         cmp        rsp, qword [r14+0x40]
-000000000009a6f4         jbe        loc_9a71a
-
-                     loc_9a6fa:
-000000000009a6fa         mov        r11, qword [r15+0x1e07]                     ; CODE XREF=Precompiled____main_1435+53
-000000000009a701         push       r11
-000000000009a703         call       Precompiled____print_911                    ; Precompiled____print_911
-000000000009a708         pop        rcx
-000000000009a709         call       Precompiled____exit_1024                    ; Precompiled____exit_1024
-000000000009a70e         mov        rax, qword [r14+0xc8]
-000000000009a715         mov        rsp, rbp
-000000000009a718         pop        rbp
-000000000009a719         ret
-                        ; endp
-
-                     loc_9a71a:
-000000000009a71a         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____main_1435+8
-000000000009a721         jmp        loc_9a6fa
-```
-
-woopsy daisy, can't say I wasn't surprised! it seems like the Dart compiler didn't really understand that the only thing the `foo()` function is doing is to return a constant global value so it's trying to retrieve that value from the object pool anyways. to be honest I was expecting the `0xdeadbeef` value to be put right into a general purpose register at this point and then passed directly to the `r11` register to then be consumed by the `Precompiled____print_911` procedure but that wasn't the case!
-
-digging deper if we change the code to the following:
-
-```dart
-import 'dart:io' show exit;
-
-const FOO = 0xDEADBEEF;
-
-int get foo => FOO;
+int get foo => 0xDEADBEEF;
 
 void main(List<String> args) {
   print(foo);
@@ -405,7 +371,7 @@ we will get this AOT:
 000000000009a732         jmp        loc_9a713
 ```
 
-so this is what I want to see from the compiler even with the `foo()` function, rather than it being a getter. in this code I created a `foo` getter that simply returns the constant value of `FOO` but when foo was a function, the Dart compiler couldn't optimize the whole function call out and substitute it with the `FOO` constant!
+in this code I created a `foo` getter that simply returns the constant value of `FOO` and as you can see, in `000000000009a704` the value of `0xdeadbeef` was placed in `eax` (and setting the higher 32-bits of `rax` to 0x00000000 as seen earlier) and then going directly to the `Precompiled____print_911` procedure.
 
 ## Global functions with 1 compile-time constant argument
 
@@ -501,14 +467,14 @@ the `number` variable is being set to the first number passed to our program as 
 000000000009f90a         call       Precompiled____print_845                    ; Precompiled____print_845
 ```
 
-let's break it down one bit at a time, it seems like the `cmp` and `jne` instruction (jump short if equal `ZF=0`, refer to EFLAGS in Intel instructions handbook) is checking the result of `Precompiled_int_tryParse_559` with `null` and if `ZF==0` (the result of `Precompiled_int_tryParse_559` was `null`), then it jumps to `loc_9f8f0`. but if the result was `null`, or in other words `ZF=0`, then it goes to this code:
+let's break it down one bit at a time, it seems like the `cmp` and `jne` instruction (jump short if not equal `ZF=0`, refer to EFLAGS in Intel instructions handbook) is checking the result of `Precompiled_int_tryParse_559` with `null` and if `ZF==0` (the result of `Precompiled_int_tryParse_559` was `null`), then it jumps to `loc_9f8f0`. but if the result was `null`, or in other words `ZF=0`, then it goes to this code:
 
 ```asm
 000000000009f8e9         xor        eax, eax
 000000000009f8eb         jmp        loc_9f8fd
 ```
 
-which is a pretty clever way of saying that `eax` is 0 at this point. I don't know if this is an optimization on the Dart compiler's side, but it seems like Dart is setting `eax` to 0 using `xor` on x86_64 instead of saying `mov eax, 0`, and I remember from many years ago where I programmed in Assembly that indeed `xor` could be faster than `mov gpr, const` so it could very well be an optimization.
+which is a pretty clever way of saying that `rax` is 0 at this point. I don't know if this is an optimization on the Dart compiler's side, but it seems like Dart is setting `rax` to 0 using `xor` on x86_64 instead of saying `mov rax, 0`, and I remember from many years ago where I programmed in Assembly that indeed `xor` could be faster than `mov r64, imm` so it could very well be an optimization.
 
 Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9f8fd` which is this code:
 
@@ -521,7 +487,13 @@ Now that `eax` is set to either 0 or the result of `tryParse()` we get to `loc_9
 000000000009f90a         call       Precompiled____print_845                    ; Precompiled____print_845
 ```
 
-I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times. Maybe this is a bug, what do I know! or maybe it's just such a difficult task to do on the compiler side to fix this that the Dart team doesn't think it's worth doing. I don't know! Do you?
+I would be lying if I said I didn't chuckle but this doesn't seem like the best way to increment `rax` by 3 😂 it seems like the Dart compiler understood that `increment()` increments by 1, but it can't quite literally put together that calling this function N times should add N to `eax` so it's just repeating itself 3 times.
+
+Here is what Vyacheslav had to say about this:
+
+> Yeah, this is a missing optimization opportunity here. Dart's compiler misses it because we don't do so called _reassociation_ (turning `((x + a) + b)` into `x + (a + b)`).
+
+So there you have the answer as to why Dart didn't optimize the above call further!
 
 ## One-liner optimized `static` functions
 
@@ -630,7 +602,11 @@ bool DecodeLoadObjectFromPoolOrThread(uword pc, const Code& code, Object* obj) {
   }
 ```
 
-you see the `if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]` code? that's the code responsible for loading the `Random` class into the stack using the `push` instruction and then `Precompiled_Random_Random__1165` call will initialize the Random instance for us. But let's not get side-tracked here, let's just focus on the static `increment()` function here. the AOT for that function is shown here:
+Before digging into this code, here is what Vyacheslav had to say about this function:
+
+> This particular function is just a helper used by disassembler and has nothing to do with how the code is generated or pool is populated or how the code is going to be executed later.
+
+Thanks to this I now know that the code above is used by the disassembler so we can't really rely on it to tell the truth, but still I find it useful since it's doing what I'm doing here in this issue of Going Deep with Dart, to traverse the generated code in reverse to see what we find! You see the `if ((bytes[2] & 0xc7) == (0x80 | (THR & 7))) {  // [r14+disp32]` code? that's the code responsible for loading the `Random` class into the stack using the `push` instruction and then `Precompiled_Random_Random__1165` call will initialize the Random instance for us. But let's not get side-tracked here, let's just focus on the static `increment()` function here. the AOT for that function is shown here:
 
 ```asm
 000000000009a941         mov        rcx, qword [rbp+var_10]
@@ -732,7 +708,7 @@ so there you have it!
 ## Conclusions
 
 - some global functions with 0 arguments, even if a 1 liner, may not get optimized at compile time, rather they will become procedures at the asm level and then called using the `call` instruction in x86_64
-- one liner getters returning a constant value tend to be optimized better by the Dart compiler, vs one-liner functions that return the same constant where the function variant stores its constant value in the object pool which then has to be retrieved by the CPU with more instructions!
+- one liner getters and functions with a constant return value are optimized the same way and their return value (a constant) is usually placed in a relevant register (such as `rax`) to be consumed later.
 - parameters passed to functions that cannot be optimized at compile-time to be inlined, are passed into the stack, using Dart's custom calling convention. I haven't been able to find a single place in the Dart SDK source code where the calling convention is documented!
 - one-liner static functions, depending on their complexity, can, just like any other global function, be optimized as an inline function.
 - depending on the complexity of a function, regardless of whether it is a static function or not, the Dart compiler might make the decision to make that function inline and just because a function seems complicated, it doesn't necessarily mean it won't be optimized and vice versa!
