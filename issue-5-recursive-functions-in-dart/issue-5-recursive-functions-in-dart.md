@@ -169,7 +169,7 @@ push    rbp
 mov     rbp, rsp
 sub     rsp, NNN
 ... now we have NNN bytes of space on the stack
-pop     rbp
+leave
 ret
 ```
 
