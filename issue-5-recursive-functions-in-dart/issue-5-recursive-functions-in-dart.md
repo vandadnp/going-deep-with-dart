@@ -154,6 +154,37 @@ with this part being the most interesting part to me:
 
 seems like the `Precompiled____incrementUntilValueIs100OrMore_1436` procedure is keeping its return value in `rax` after it's returning. so seems like the callee returns its value in `rax` in Dart. and the `push` and `pop` is just to balance the stack since `value` went into the stack with `push rax` so the caller is responsible for balancing the calls on the stack and that's what the `pop rcx` seems to be doing there. so we can conclude that the `Precompiled____incrementUntilValueIs100OrMore_1436` procedure here is keeping its return value in `rax` all the while it is calling itself on and on until it gets to the `JL` instruction where it pops out of the whole routine!
 
+to better understand how recursive functions actually work in Dart, you'd need to know how `call`, `ret`, stack pointers, base pointer, etc work at assembly level so let's dig into those things now.
+
+## Low-level anatomy of recursive function
+
+let's first talk about stacks. to know about stack, you'd need to know about segments. a segment is usually a defined piece of a software that has a limit, usually maximum of 4 gigs of memory on modern hardware. then you'd have a pointer, let's say the stack pointer, that starts at the **top** of the segment. so let's say we have a stack that is 1 megabytes, 1024 bytes in other words. in normal conditions, the program would set the stack up for you, in this case Dart, and then you'd have a stack pointer, or SP (stack pointer), that is stored in `esp` under x86_32 and `rsp` in x86_64. the stack pointer's value in this case would be 1024, so it would point to the top of the stack.
+
+when you pass a function to a procedure, the compiler would set up the stack using a calling convention. a calling convention is an agreed-upon *way of* calling other procedures. for instance, a calling convention might be that the first parameter to a function is passed into `rax`, the second into `rcx` and the rest are pushed into the stack as 64-bit pointers. something like that. i'm making this up but the idea stays corrected. Dart, as I've understood from Vyacheslav Egorov, has a custom calling convention meaning that it's not really documented in a central place and this is nothing strange. the calling convention has to make sense to those who write a specific compiler, otherwise you and I who use the compiler won't even notice how it is working under the hood but a good understanding of how the stack works will help you in understanding recursive functions.
+
+to continue you'd also need to know about the base pointer, or `ebp` in 32-bit mode or `rbp` in 64-bit protected mode. usually what happens inside the creation of a stack frame for a procedure, depending on who or what has compiled the code, would look like this:
+
+```asm
+push    rbp
+mov     rbp, rsp
+sub     rsp, NNN
+... now we have NNN bytes of space on the stack
+pop     rbp
+ret
+```
+
+when we enter this procedure, usually what happens is that the stack pointer points to the top of the stack for the current procedure, so any values above that pointer are usually the values that have been pushed to the stack. again depending on the calling convention, maybe arguments will get passed to gprs (general purpose registers) and from what Vyacheslav said, Dart has a custom calling convention so I cannot really document it here but we will assume that in our fictitious calling convention in this article, all arguments are passed in the stack! in that case when we enter our procedure shown before, the stack pointer would point to the last argument pushed to the stack. then you would use the base pointer to point to the memory the procedure needs to allocate for its local variables as well as the variables that the *caller* pushed to the stack and passed to us. if you see `rbp + NNN` it may mean that the procedure is reading arguments passed to it while if you see `rsp + NNN` after a `sub rsp, NNN` it *may* mean that the procedure is working with its local variables.
+
+so to summarize, calling conventions define how a caller and callee communicate with each other while the base pointer and the stack pointer are used to coordinate the access to both arguments passed to a procedure and the locally stored stack space for the procedure.
+
+knowing that, and understanding that upon a Dart function getting called, it will set up its stack using the stack pointer and the base pointer, and knowing that every value pushed to the stack decreases the stack pointer by the number of bytes needed for that variable to be stored in the stack, you'll understand that the stack can actually run out of space if you recursively call a function with no proper exit.
+
+if you look at the original code snippet:
+
+```asm
+
+```
+
 ## Conclusions
 
 - conclusion 1
