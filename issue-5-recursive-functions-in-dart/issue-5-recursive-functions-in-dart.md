@@ -185,6 +185,118 @@ here is also a good little bit of information about the stack pointer from Intel
 
 > Items are placed on the stack using the PUSH instruction and removed from the stack using the POP instruction. When an item is pushed onto the stack, the processor decrements the ESP register, then writes the item at the new top of stack. When an item is popped off the stack, the processor reads the item from the top of stack, then incre- ments the ESP register. In this manner, the stack grows down in memory (towards lesser addresses) when items are pushed on the stack and shrinks up (towards greater addresses) when the items are popped from the stack.
 
+## Traditional factorial recursive function in Dart
+
+i can't talk about recursive functions without paying tribute to the classical factorial function implementation that uses recursion so let's have a look at that. factorial of N is the *product* of all numbers from and including 1 up to and including N, so the factorial of 6 is `1*2*3*4*5*6 = 720`. a non-recursive way of calculating factorial of N would be like this:
+
+```dart
+import 'dart:io' show exit;
+
+int factorial(int value) {
+  var result = 1;
+  for (var count = 1; count <= value; count++) {
+    result *= count;
+  }
+  return result;
+}
+
+void main(List<String> args) {
+  print(factorial(6));
+  exit(0);
+}
+```
+
+and this is quite straightforward but not what I want to demonstrate in this issue. let's have a look at how this would look like if we used recursion:
+
+```dart
+import 'dart:io' show exit;
+
+int factorial(int value) => value == 1 
+  ? value 
+  : value * factorial(value - 1);
+
+void main(List<String> args) {
+  print(factorial(4));
+  exit(0);
+}
+```
+
+let's check this function's compiled AOT and see how that looks like:
+
+```asm
+        ; ================ B E G I N N I N G   O F   P R O C E D U R E ================
+
+        ; Variables:
+        ;    arg_0: int, 16
+
+
+                     Precompiled____factorial_1436:
+000000000009a73c         push       rbp                                         ; CODE XREF=Precompiled____main_1435+20, Precompiled____factorial_1436+65
+000000000009a73d         mov        rbp, rsp
+000000000009a740         cmp        rsp, qword [r14+0x40]
+000000000009a744         jbe        loc_9a793
+
+                     loc_9a74a:
+000000000009a74a         mov        rcx, qword [rbp+arg_0]                      ; CODE XREF=Precompiled____factorial_1436+94
+000000000009a74e         mov        rax, rcx
+000000000009a751         add        rax, rax
+000000000009a754         jno        loc_9a763
+
+000000000009a75a         call       Precompiled_Stub__iso_stub_AllocateMintSharedWithoutFPURegsStub ; Precompiled_Stub__iso_stub_AllocateMintSharedWithoutFPURegsStub
+000000000009a75f         mov        qword [rax+7], rcx
+
+                     loc_9a763:
+000000000009a763         cmp        rax, 0x2                                    ; CODE XREF=Precompiled____factorial_1436+24
+000000000009a767         jne        loc_9a775
+
+000000000009a76d         mov        rax, rcx
+000000000009a770         jmp        loc_9a78e
+
+                     loc_9a775:
+000000000009a775         mov        rax, rcx                                    ; CODE XREF=Precompiled____factorial_1436+43
+000000000009a778         sub        rax, 0x1
+000000000009a77c         push       rax
+000000000009a77d         call       Precompiled____factorial_1436               ; Precompiled____factorial_1436
+000000000009a782         pop        rcx
+000000000009a783         mov        rcx, qword [rbp+arg_0]
+000000000009a787         imul       rcx, rax
+000000000009a78b         mov        rax, rcx
+
+                     loc_9a78e:
+000000000009a78e         mov        rsp, rbp                                    ; CODE XREF=Precompiled____factorial_1436+52
+000000000009a791         pop        rbp
+000000000009a792         ret
+                        ; endp
+
+                     loc_9a793:
+000000000009a793         call       qword [r14+0x240]                           ; CODE XREF=Precompiled____factorial_1436+8
+```
+
+the first part of the procedure is just setting up the stack:
+
+```asm
+                     Precompiled____factorial_1436:
+000000000009a73c         push       rbp                                         ; CODE XREF=Precompiled____main_1435+20, Precompiled____factorial_1436+65
+000000000009a73d         mov        rbp, rsp
+000000000009a740         cmp        rsp, qword [r14+0x40]
+000000000009a744         jbe        loc_9a793
+```
+
+so i won't go through it again! after that we are going to `loc_9a74a` which looks like this:
+
+```asm
+                     loc_9a74a:
+000000000009a74a         mov        rcx, qword [rbp+arg_0]                      ; CODE XREF=Precompiled____factorial_1436+94
+000000000009a74e         mov        rax, rcx
+000000000009a751         add        rax, rax
+000000000009a754         jno        loc_9a763
+```
+
+since it's using the base pointer `+arg_0` I'm guessing that's how it is accessing the `value` argument, so at this point `rcx` is equal to the `value` argument. the `c` registers are usually used as counter registers, hence the `c` (as in counter) so I don't know why Dart is using that register for the incoming `value` argument but maybe it's a Dart AOT convention to use the counter register for integer arguments? not sure. someone could correct me on this!
+
+that's then followed by `add rax, rcx` which I believe just 
+
+
 ## Conclusions
 
 - conclusion 1
