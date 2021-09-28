@@ -179,11 +179,11 @@ so to summarize, calling conventions define how a caller and callee communicate 
 
 knowing that, and understanding that upon a Dart function getting called, it will set up its stack using the stack pointer and the base pointer, and knowing that every value pushed to the stack decreases the stack pointer by the number of bytes needed for that variable to be stored in the stack, you'll understand that the stack can actually run out of space if you recursively call a function with no proper exit.
 
-if you look at the original code snippet:
+the thing to take away from all of this rant is that every time we enter a new procedure through `CALL` where that procedure is setting up its stack, the stack pointer is decremented since we start at the top of the stack segment, so if you continue calling procedures like in our case, recursively, without actually leaving the nested procedure calls, the stack pointer will get so low that the runtime will and should eventually throw a stack overflow, which I'm sure Dart does.
 
-```asm
+here is also a good little bit of information about the stack pointer from Intel:
 
-```
+> Items are placed on the stack using the PUSH instruction and removed from the stack using the POP instruction. When an item is pushed onto the stack, the processor decrements the ESP register, then writes the item at the new top of stack. When an item is popped off the stack, the processor reads the item from the top of stack, then incre- ments the ESP register. In this manner, the stack grows down in memory (towards lesser addresses) when items are pushed on the stack and shrinks up (towards greater addresses) when the items are popped from the stack.
 
 ## Conclusions
 
