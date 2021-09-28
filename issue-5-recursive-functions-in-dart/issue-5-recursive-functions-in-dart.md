@@ -156,7 +156,7 @@ seems like the `Precompiled____incrementUntilValueIs100OrMore_1436` procedure is
 
 to better understand how recursive functions actually work in Dart, you'd need to know how `call`, `ret`, stack pointers, base pointer, etc work at assembly level so let's dig into those things now.
 
-## Low-level anatomy of recursive function
+## Low-level anatomy of recursive functions
 
 let's first talk about stacks. to know about stack, you'd need to know about segments. a segment is usually a defined piece of a software that has a limit, usually maximum of 4 gigs of memory on modern hardware. then you'd have a pointer, let's say the stack pointer, that starts at the **top** of the segment. so let's say we have a stack that is 1 megabytes, 1024 bytes in other words. in normal conditions, the program would set the stack up for you, in this case Dart, and then you'd have a stack pointer, or SP (stack pointer), that is stored in `esp` under x86_32 and `rsp` in x86_64. the stack pointer's value in this case would be 1024, so it would point to the top of the stack.
 
