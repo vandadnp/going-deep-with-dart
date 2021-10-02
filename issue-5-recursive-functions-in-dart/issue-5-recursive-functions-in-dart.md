@@ -1,6 +1,6 @@
 # Recursive Functions in Dart
 
-I know a lot of programmers, including myself, sometimes get confused by what a recursive function is and how it works internally and I want to shed some lights on this matter and see how Dart compiles recursive functions into AOT. I have done some OS programming many years ago (around year 2000) with NASM and created a 32-bit x86 OS and got it working with basic kernel functionalities and wrote some cmd apps for it and writing code in asm then really helped in understanding how recursion works at a low level so I hope this article helps with shedding light on recursion.
+Let's have a look at how recursion works at low-level by having a look at some Dart AOT code!
 
 ## What is a recursive function?
 
