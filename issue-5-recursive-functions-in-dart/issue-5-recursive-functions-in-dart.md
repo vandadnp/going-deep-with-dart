@@ -2,6 +2,13 @@
 
 Let's have a look at how recursion works at low-level by having a look at some Dart AOT code!
 
+- [Recursive Functions in Dart](#recursive-functions-in-dart)
+  - [What is a recursive function?](#what-is-a-recursive-function)
+  - [Low-level anatomy of recursive functions](#low-level-anatomy-of-recursive-functions)
+  - [Traditional factorial recursive function in Dart](#traditional-factorial-recursive-function-in-dart)
+  - [Conclusions](#conclusions)
+  - [References](#references)
+
 ## What is a recursive function?
 
 the best way to demonstrate what a recursive function is, is through an example. given the following Dart code:
