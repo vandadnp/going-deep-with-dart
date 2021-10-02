@@ -290,11 +290,23 @@ so i won't go through it again! after that we are going to `loc_9a74a` which loo
 000000000009a74e         mov        rax, rcx
 000000000009a751         add        rax, rax
 000000000009a754         jno        loc_9a763
+
+000000000009a75a         call       Precompiled_Stub__iso_stub_AllocateMintSharedWithoutFPURegsStub ; Precompiled_Stub__iso_stub_AllocateMintSharedWithoutFPURegsStub
+000000000009a75f         mov        qword [rax+7], rcx
+
+                     loc_9a763:
+000000000009a763         cmp        rax, 0x2                                    ; CODE XREF=Precompiled____factorial_1436+24
+000000000009a767         jne        loc_9a775
+
+000000000009a76d         mov        rax, rcx
+000000000009a770         jmp        loc_9a78e
 ```
 
-since it's using the base pointer `+arg_0` I'm guessing that's how it is accessing the `value` argument, so at this point `rcx` is equal to the `value` argument. the `c` registers are usually used as counter registers, hence the `c` (as in counter) so I don't know why Dart is using that register for the incoming `value` argument but maybe it's a Dart AOT convention to use the counter register for integer arguments? not sure. someone could correct me on this!
+i truly got puzzled by all of this so I asked Vyacheslav on Twitter what all of this means and he answerd with this:
 
-that's then followed by `add rax, rcx` which I believe just 
+> it boxes an unboxed int64 value (either into a smi or a mint box if it does not fit into a smi) and then compares result with with a smi representation of 1 it's a bug - boxing should not be needed, will be fixed by https://t.co/PIKVq6kYFD
+
+Since it seems to be a known bug that the compiler is doing additional work here than it should, and the work should essentially be replaced by doing calculations in a gpr, I will skip explaining this. but if you're interested in what mint representations and smi are in Dart, I suggest that you have a look at [this resource](https://dart.dev/articles/archive/numeric-computation).
 
 
 ## Conclusions
@@ -303,5 +315,6 @@ that's then followed by `add rax, rcx` which I believe just
 
 ## References
 
-- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture
-- Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z
+- [Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 1: Basic Architecture](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-1-manual.pdf)
+- [Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2 (2A, 2B, 2C & 2D): Instruction Set Reference, A-Z](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-instruction-set-reference-manual-325383.pdf)
+- [Dart: Numeric computation](https://dart.dev/articles/archive/numeric-computation)
