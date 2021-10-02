@@ -308,10 +308,26 @@ i truly got puzzled by all of this so I asked Vyacheslav on Twitter what all of 
 
 Since it seems to be a known bug that the compiler is doing additional work here than it should, and the work should essentially be replaced by doing calculations in a gpr, I will skip explaining this. but if you're interested in what mint representations and smi are in Dart, I suggest that you have a look at [this resource](https://dart.dev/articles/archive/numeric-computation).
 
+we then get to the juciest part of the procedure, `loc_9a775`, which in my opinion is this:
+
+```asm
+                     loc_9a775:
+000000000009a775         mov        rax, rcx                                    ; CODE XREF=Precompiled____factorial_1436+43
+000000000009a778         sub        rax, 0x1
+000000000009a77c         push       rax
+000000000009a77d         call       Precompiled____factorial_1436               ; Precompiled____factorial_1436
+000000000009a782         pop        rcx
+000000000009a783         mov        rcx, qword [rbp+arg_0]
+000000000009a787         imul       rcx, rax
+000000000009a78b         mov        rax, rcx
+```
+
+so it looks like the current accumulated value is being placed inside `rbp+arg_0` and the current `value` is being processed by the first three instructions in `loc_9a775`. if you look at the original Dart code you may get confused by the ternary statement comparing `value` with 1 and then passing the `value - 1` (which by the way is the `sub rax, 0x01` instruction above) into itself, and you'd wonder how `value` can both be `1` and also can be the result of the calculation of the `factorial` function but one thing we need to keep in mind is that the calculation done inside the `factorial` function is being saved in the stack, and the result is being stored in the stack too, and when `value` then gets subtracted, it gets pushed as a new value and passed to the stack and then read from the stack by the new `factorial` procedure call. so we essentially have two representations of the `value`! one is being essentially used as a counter, and the other as an accumulator, perfect for `rcx` and `rax` (or vice versa) if you ask me!
 
 ## Conclusions
 
-- conclusion 1
+- recursive functions do indeed call themselves, and this comes with the overhead of settign up a new stack and unwinding the stack in every pass through the function. you may not incur the same execution cost if you write your functions using iterators!
+- if the exit scenario for a recursive function is not set properly, you will get stack overflow since you will run out of stack space after N execution depending on what Dart is allocated the stack size for. Usually the stack can be up to 4GB long, but I'm unsure as how large the stack is allowed to grow in Dart. The only part-official information about this is provided in GitHub on the Dart SDK repo from Ivan Posva who wrote "Stack space for the main thread is not set by the VM, but by the OS on launch."
 
 ## References
 
